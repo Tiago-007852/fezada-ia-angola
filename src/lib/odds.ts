@@ -28,7 +28,7 @@ export const MATCHES: Match[] = [
 ];
 
 function m(id: string, league: string, home: string, away: string, kickoff: string, e: number[], p: number[], b: number[]): Match {
-  const t = (a: number[]) => ({ "1": a[0], X: a[1], "2": a[2] });
+  const t = (a: number[]) => ({ "1": a[0] ?? 0, X: a[1] ?? 0, "2": a[2] ?? 0 });
   return { id, league, home, away, kickoff, odds: { elephant: t(e), premier: t(p), bantu: t(b) } };
 }
 

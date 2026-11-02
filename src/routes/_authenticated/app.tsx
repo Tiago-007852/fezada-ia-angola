@@ -74,7 +74,7 @@ function AppPage() {
   );
 }
 
-function Pending({ email, blocked }: { email?: string; blocked: boolean }) {
+function Pending({ email, blocked }: { email: string | undefined; blocked: boolean }) {
   const msg = encodeURIComponent(`Olá! Quero ativar a minha conta Fezada IA. Email: ${email ?? ""}`);
   return (
     <div className="space-y-5 px-4 py-10 text-center">
