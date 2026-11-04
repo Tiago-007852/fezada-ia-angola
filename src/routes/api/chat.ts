@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/chat")({
         const body = (await request.json()) as { messages?: UIMessage[] };
         if (!Array.isArray(body.messages)) return new Response("Pedido inválido", { status: 400 });
         const { streamGatewayChat } = await import("@/lib/ai/gateway.server");
-        return streamGatewayChat(request, apiKey, await convertToModelMessages(body.messages), SYSTEM);
+        return streamGatewayChat(request, apiKey, await convertToModelMessages(body.messages), await buildSystem());
       },
     },
   },
