@@ -4,7 +4,15 @@ import { bookingCode, netReturn, totalOdds } from "./odds";
 describe("odds", () => {
   it("multiplies odds of an accumulator", () => {
     // Petro 2.10 x Benfica 2.30 on Elephant Bet
-    expect(totalOdds([{ matchId: "g1", pick: "1" }, { matchId: "p1", pick: "1" }], "elephant")).toBeCloseTo(4.83);
+    expect(
+      totalOdds(
+        [
+          { matchId: "g1", pick: "1" },
+          { matchId: "p1", pick: "1" },
+        ],
+        "elephant",
+      ),
+    ).toBeCloseTo(4.83);
   });
 
   it("taxes only the profit at 15%", () => {

@@ -13,13 +13,19 @@ export const TIP_SCHEMA = z.object({
         away: z.string(),
         pick: z.enum(["1", "X", "2"]),
         confidence: z.number().int().min(1).max(5).describe("1 = baixa, 5 = alta"),
-        reason: z.string().max(220).describe("Justificativa curta e concreta, em português de Angola"),
+        reason: z
+          .string()
+          .max(220)
+          .describe("Justificativa curta e concreta, em português de Angola"),
       }),
     )
     .min(2)
     .max(5),
   rationale: z.string().max(320).describe("Resumo da tese do bilhete, em português de Angola"),
-  stake_advice: z.string().max(160).describe("Sugestão de gestão de banca em % do valor disponível, nunca valores absolutos"),
+  stake_advice: z
+    .string()
+    .max(160)
+    .describe("Sugestão de gestão de banca em % do valor disponível, nunca valores absolutos"),
   responsible_note: z.string().max(160).describe("Nota de jogo responsável"),
 });
 export type TipOutput = z.infer<typeof TIP_SCHEMA>;
@@ -34,9 +40,16 @@ export type CandidateMatch = {
   availableOdds: Record<"1" | "X" | "2", number | null>;
 };
 
-export const pickLabel: Record<string, string> = { "1": "Casa vence", X: "Empate", "2": "Fora vence" };
+export const pickLabel: Record<string, string> = {
+  "1": "Casa vence",
+  X: "Empate",
+  "2": "Fora vence",
+};
 
-export const riskCounts: Record<RiskLevel, { min: number; max: number; maxConfidenceAllowed: number; maxOdds: number }> = {
+export const riskCounts: Record<
+  RiskLevel,
+  { min: number; max: number; maxConfidenceAllowed: number; maxOdds: number }
+> = {
   seguro: { min: 2, max: 3, maxConfidenceAllowed: 4, maxOdds: 2.5 },
   equilibrado: { min: 2, max: 4, maxConfidenceAllowed: 5, maxOdds: 3.5 },
   arriscado: { min: 3, max: 5, maxConfidenceAllowed: 5, maxOdds: 6 },

@@ -2,7 +2,17 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Copy, RefreshCw } from "lucide-react";
-import { BOOKIES, MATCHES, bestBookie, bookingCode, kz, netReturn, totalOdds, type Pick, type Selection } from "@/lib/odds";
+import {
+  BOOKIES,
+  MATCHES,
+  bestBookie,
+  bookingCode,
+  kz,
+  netReturn,
+  totalOdds,
+  type Pick,
+  type Selection,
+} from "@/lib/odds";
 import { getUpcomingOdds } from "@/lib/feed.functions";
 import { totalOddsOf } from "@/lib/ticket.shared";
 import { createTicket } from "@/lib/tickets";
@@ -37,7 +47,14 @@ function toRealGames(games: Awaited<ReturnType<typeof getUpcomingOdds>>["games"]
         if (b.draw && (!best.X || b.draw > best.X)) best.X = b.draw;
         if (b.away && (!best["2"] || b.away > best["2"])) best["2"] = b.away;
       }
-      return { fixtureId: g.fixtureId, league: g.league, home: g.home, away: g.away, kickoffISO: g.kickoffISO, odds: best };
+      return {
+        fixtureId: g.fixtureId,
+        league: g.league,
+        home: g.home,
+        away: g.away,
+        kickoffISO: g.kickoffISO,
+        odds: best,
+      };
     })
     .filter((g) => g.odds["1"] !== null || g.odds.X !== null || g.odds["2"] !== null)
     .slice(0, 12);
@@ -50,7 +67,10 @@ export function Comparator() {
     enabled: typeof window !== "undefined",
     staleTime: 5 * 60_000,
   });
-  const realGames = useMemo(() => (real.data && !real.data.demo ? toRealGames(real.data.games) : []), [real.data]);
+  const realGames = useMemo(
+    () => (real.data && !real.data.demo ? toRealGames(real.data.games) : []),
+    [real.data],
+  );
   const mode: "real" | "demo" = realGames.length > 0 ? "real" : "demo";
 
   return mode === "real" ? (
@@ -69,7 +89,9 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
     // Sugestão: favorito do jogo com odd na faixa de valor (1.6-2.4) — mantém o espírito do botão
     const picks = realGames
       .flatMap((g) => {
-        const pick = (["1", "2"] as Pick[]).find((k) => g.odds[k] && g.odds[k]! >= 1.6 && g.odds[k]! <= 2.4);
+        const pick = (["1", "2"] as Pick[]).find(
+          (k) => g.odds[k] && g.odds[k]! >= 1.6 && g.odds[k]! <= 2.4,
+        );
         return pick ? [{ matchId: g.fixtureId, pick }] : [];
       })
       .slice(0, 4);
@@ -84,9 +106,14 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
       return [...s.filter((x) => x.matchId !== matchId), { matchId, pick }];
     });
 
-  const oddsOf = (matchId: string, pick: Pick) => realGames.find((g) => g.fixtureId === matchId)?.odds[pick] ?? null;
+  const oddsOf = (matchId: string, pick: Pick) =>
+    realGames.find((g) => g.fixtureId === matchId)?.odds[pick] ?? null;
 
-  const currentOdds = sel.map((s) => ({ pick: s.pick, pickKey: s.pick, odds: oddsOf(s.matchId, s.pick) ?? 0 }));
+  const currentOdds = sel.map((s) => ({
+    pick: s.pick,
+    pickKey: s.pick,
+    odds: oddsOf(s.matchId, s.pick) ?? 0,
+  }));
   const total = totalOddsOf(currentOdds.length > 0 ? currentOdds : [{ odds: 1, pick: "1" }]);
   const r = netReturn(stake, total);
   const validSel = sel.filter((s) => (oddsOf(s.matchId, s.pick) ?? 0) > 1);
@@ -127,7 +154,9 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Jogos de hoje com odds reais do feed.</p>
-        <Button size="sm" variant="secondary" onClick={suggest}>Sugerir bilhete</Button>
+        <Button size="sm" variant="secondary" onClick={suggest}>
+          Sugerir bilhete
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -137,9 +166,16 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
             <div key={g.fixtureId} className="rounded-lg border border-border bg-card p-3">
               <div className="mb-2 flex justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
                 <span>{g.league}</span>
-                <span>{new Date(g.kickoffISO).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}</span>
+                <span>
+                  {new Date(g.kickoffISO).toLocaleTimeString("pt-AO", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               </div>
-              <p className="mb-2 text-sm font-semibold">{g.home} vs {g.away}</p>
+              <p className="mb-2 text-sm font-semibold">
+                {g.home} vs {g.away}
+              </p>
               <div className="grid grid-cols-3 gap-2">
                 {(["1", "X", "2"] as Pick[]).map((k) => {
                   const odd = g.odds[k];
@@ -151,11 +187,15 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
                       onClick={() => toggle(g.fixtureId, k)}
                       className={cn(
                         "rounded-md border px-2 py-1.5 text-left text-xs transition-colors disabled:opacity-40",
-                        pick === k ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary",
+                        pick === k
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-secondary",
                       )}
                     >
                       <span className="font-bold">{k}</span>
-                      <span className="float-right font-semibold">{odd ? top.toFixed(2) : "–"}</span>
+                      <span className="float-right font-semibold">
+                        {odd ? top.toFixed(2) : "–"}
+                      </span>
                     </button>
                   );
                 })}
@@ -187,7 +227,9 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
           <div className="space-y-2">
             <div className="rounded-md border border-primary p-2 text-xs">
               <p className="font-semibold text-primary">Melhor odd de referência (feed)</p>
-              <p className="text-muted-foreground">Odd {total.toFixed(2)} · Líquido <b className="text-foreground">{kz(r.net)}</b></p>
+              <p className="text-muted-foreground">
+                Odd {total.toFixed(2)} · Líquido <b className="text-foreground">{kz(r.net)}</b>
+              </p>
             </div>
             <div className="flex gap-2">
               <Button
@@ -205,18 +247,25 @@ function RealComparator({ realGames }: { realGames: RealGame[] }) {
                   const text = validSel
                     .map((s) => {
                       const g = realGames.find((x) => x.fixtureId === s.matchId);
-                      return g ? `${g.home} vs ${g.away}: ${s.pick} @ ${g.odds[s.pick]?.toFixed(2)}` : "";
+                      return g
+                        ? `${g.home} vs ${g.away}: ${s.pick} @ ${g.odds[s.pick]?.toFixed(2)}`
+                        : "";
                     })
                     .filter(Boolean)
                     .join("\n");
-                  navigator.clipboard?.writeText(`Bilhete Fezada IA (${total.toFixed(2)}, aposta ${stake} Kz):\n${text}`);
+                  navigator.clipboard?.writeText(
+                    `Bilhete Fezada IA (${total.toFixed(2)}, aposta ${stake} Kz):\n${text}`,
+                  );
                   toast.success("Bilhete copiado — colas na casa que escolheres");
                 }}
               >
                 <Copy className="mr-1 h-4 w-4" /> Copiar
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground">Odds reais do feed (melhor odd por pick). Retorno líquido após 15% de imposto sobre o lucro. Não há códigos de reserva gerados: colas as seleções diretamente na tua casa.</p>
+            <p className="text-[10px] text-muted-foreground">
+              Odds reais do feed (melhor odd por pick). Retorno líquido após 15% de imposto sobre o
+              lucro. Não há códigos de reserva gerados: colas as seleções diretamente na tua casa.
+            </p>
           </div>
         )}
       </div>
@@ -250,10 +299,14 @@ function DemoComparator({ loading }: { loading: boolean }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground">
-          {loading ? "A tentar ligar ao feed real…" : "Feed indisponível — cotações de demonstração."}
+          {loading
+            ? "A tentar ligar ao feed real…"
+            : "Feed indisponível — cotações de demonstração."}
           <RefreshCw className="mb-0.5 ml-1 inline h-3 w-3" />
         </p>
-        <Button size="sm" variant="secondary" onClick={suggest}>Sugerir bilhete</Button>
+        <Button size="sm" variant="secondary" onClick={suggest}>
+          Sugerir bilhete
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -262,9 +315,12 @@ function DemoComparator({ loading }: { loading: boolean }) {
           return (
             <div key={m.id} className="rounded-lg border border-border bg-card p-3">
               <div className="mb-2 flex justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
-                <span>{m.league}</span><span>{m.kickoff}</span>
+                <span>{m.league}</span>
+                <span>{m.kickoff}</span>
               </div>
-              <p className="mb-2 text-sm font-semibold">{m.home} vs {m.away}</p>
+              <p className="mb-2 text-sm font-semibold">
+                {m.home} vs {m.away}
+              </p>
               <div className="grid grid-cols-3 gap-2">
                 {(["1", "X", "2"] as Pick[]).map((k) => {
                   const top = Math.max(...BOOKIES.map((b) => m.odds[b.id][k]));
@@ -274,7 +330,9 @@ function DemoComparator({ loading }: { loading: boolean }) {
                       onClick={() => toggle(m.id, k)}
                       className={cn(
                         "rounded-md border px-2 py-1.5 text-left text-xs transition-colors",
-                        pick === k ? "border-primary bg-primary text-primary-foreground" : "border-border bg-secondary",
+                        pick === k
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-secondary",
                       )}
                     >
                       <span className="font-bold">{k}</span>
@@ -313,11 +371,21 @@ function DemoComparator({ loading }: { loading: boolean }) {
               const r = netReturn(stake, odds);
               const code = bookingCode(b.id, sel);
               return (
-                <div key={b.id} className={cn("flex items-center gap-2 rounded-md border p-2 text-xs", best === b.id ? "border-primary" : "border-border")}>
+                <div
+                  key={b.id}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md border p-2 text-xs",
+                    best === b.id ? "border-primary" : "border-border",
+                  )}
+                >
                   <span className={cn("h-2 w-2 rounded-full", colorDot[b.id])} />
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{b.name} {best === b.id && <span className="text-primary">· melhor</span>}</p>
-                    <p className="text-muted-foreground">Odd {odds.toFixed(2)} · Líquido <b className="text-foreground">{kz(r.net)}</b></p>
+                    <p className="font-semibold">
+                      {b.name} {best === b.id && <span className="text-primary">· melhor</span>}
+                    </p>
+                    <p className="text-muted-foreground">
+                      Odd {odds.toFixed(2)} · Líquido <b className="text-foreground">{kz(r.net)}</b>
+                    </p>
                   </div>
                   <button
                     onClick={() => {
@@ -331,7 +399,10 @@ function DemoComparator({ loading }: { loading: boolean }) {
                 </div>
               );
             })}
-            <p className="text-[10px] text-muted-foreground">Retorno líquido após 15% de imposto sobre o lucro. Códigos de reserva simulados. Cotações de demonstração — compara direto na casa.</p>
+            <p className="text-[10px] text-muted-foreground">
+              Retorno líquido após 15% de imposto sobre o lucro. Códigos de reserva simulados.
+              Cotações de demonstração — compara direto na casa.
+            </p>
           </div>
         )}
       </div>

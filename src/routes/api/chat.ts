@@ -24,9 +24,13 @@ async function buildSystem(): Promise<string> {
   try {
     const { fetchLiveScores } = await import("@/lib/live.server");
     const { games, demo } = await fetchLiveScores();
-    if (demo) return `${SYSTEM_BASE}\n\nJogos em direto: neste momento o serviço de resultados ao vivo está indisponível; se te perguntarem por resultados em direto, diz que estão temporariamente indisponíveis e não inventes resultados.`;
-    if (games.length === 0) return `${SYSTEM_BASE}\n\nJogos em direto: neste momento não há jogos a decorrer. Se te perguntarem por resultados ao vivo, diz que não há jogos a decorrer agora.`;
-    const list = games.map((g) => `${g.league}: ${g.home} ${g.hs}-${g.as} ${g.away} (${g.minute}')`).join("\n");
+    if (demo)
+      return `${SYSTEM_BASE}\n\nJogos em direto: neste momento o serviço de resultados ao vivo está indisponível; se te perguntarem por resultados em direto, diz que estão temporariamente indisponíveis e não inventes resultados.`;
+    if (games.length === 0)
+      return `${SYSTEM_BASE}\n\nJogos em direto: neste momento não há jogos a decorrer. Se te perguntarem por resultados ao vivo, diz que não há jogos a decorrer agora.`;
+    const list = games
+      .map((g) => `${g.league}: ${g.home} ${g.hs}-${g.as} ${g.away} (${g.minute}')`)
+      .join("\n");
     return `${SYSTEM_BASE}\n\nJogos a decorrer AGORA (resultados reais, em direto):\n${list}\nQuando te perguntarem por jogos em direto ou resultados, responde com estes dados reais; nunca inventes resultados.`;
   } catch {
     return SYSTEM_BASE;
@@ -52,14 +56,21 @@ export const Route = createFileRoute("/api/chat")({
         } catch {
           return new Response("Pedido inválido", { status: 400 });
         }
-        if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 60)
+        if (
+          !Array.isArray(body.messages) ||
+          body.messages.length === 0 ||
+          body.messages.length > 60
+        )
           return new Response("Pedido inválido", { status: 400 });
         const { streamGatewayChat } = await import("@/lib/ai/gateway.server");
         const tools = {
           criar_palpite: tool({
-            description: "Cria um bilhete de aposta (palpite) para hoje, com odds reais do feed, e guarda-o na conta do utilizador.",
+            description:
+              "Cria um bilhete de aposta (palpite) para hoje, com odds reais do feed, e guarda-o na conta do utilizador.",
             inputSchema: z.object({
-              risk: z.enum(["seguro", "equilibrado", "arriscado"]).describe("Nível de risco pedido pelo utilizador"),
+              risk: z
+                .enum(["seguro", "equilibrado", "arriscado"])
+                .describe("Nível de risco pedido pelo utilizador"),
             }),
             execute: async ({ risk }) => {
               try {
@@ -67,28 +78,40 @@ export const Route = createFileRoute("/api/chat")({
                 if ("error" in generated) return { ok: false, error: generated.error };
                 const { tip, demo } = generated;
                 if (demo) {
-                  return { ok: true, demo: true, rationale: tip.rationale, stake_advice: tip.stake_advice, responsible_note: tip.responsible_note, selections: tip.selections };
+                  return {
+                    ok: true,
+                    demo: true,
+                    rationale: tip.rationale,
+                    stake_advice: tip.stake_advice,
+                    responsible_note: tip.responsible_note,
+                    selections: tip.selections,
+                  };
                 }
                 const byId = new Map(generated.candidates.map((c) => [c.fixtureId, c]));
-                const created = await createTicket(auth.userId, {
-                  source: "ai",
-                  stake: 1000,
-                  risk,
-                  rationale: tip.rationale,
-                  selections: tip.selections.map((s) => {
-                    const m = byId.get(s.fixture_id);
-                    return {
-                      fixtureId: s.fixture_id,
-                      home: s.home,
-                      away: s.away,
-                      kickoff: m?.kickoffISO ?? new Date().toISOString(),
-                      league: m?.league ?? "",
-                      pick: s.pick,
-                      odds: m?.availableOdds[s.pick] ?? 1,
-                    };
-                  }),
-                }, { trusted: true });
-                if (!created.ok) return { ok: false, error: created.error ?? "Falha ao guardar bilhete" };
+                const created = await createTicket(
+                  auth.userId,
+                  {
+                    source: "ai",
+                    stake: 1000,
+                    risk,
+                    rationale: tip.rationale,
+                    selections: tip.selections.map((s) => {
+                      const m = byId.get(s.fixture_id);
+                      return {
+                        fixtureId: s.fixture_id,
+                        home: s.home,
+                        away: s.away,
+                        kickoff: m?.kickoffISO ?? new Date().toISOString(),
+                        league: m?.league ?? "",
+                        pick: s.pick,
+                        odds: m?.availableOdds[s.pick] ?? 1,
+                      };
+                    }),
+                  },
+                  { trusted: true },
+                );
+                if (!created.ok)
+                  return { ok: false, error: created.error ?? "Falha ao guardar bilhete" };
                 return { ok: true, demo: false, ticket: created.ticket };
               } catch (e) {
                 return { ok: false, error: (e as Error).message ?? "Falha na geração do palpite" };
@@ -96,7 +119,13 @@ export const Route = createFileRoute("/api/chat")({
             },
           }),
         };
-        return streamGatewayChat(request, apiKey, await convertToModelMessages(body.messages), await buildSystem(), tools);
+        return streamGatewayChat(
+          request,
+          apiKey,
+          await convertToModelMessages(body.messages),
+          await buildSystem(),
+          tools,
+        );
       },
     },
   },

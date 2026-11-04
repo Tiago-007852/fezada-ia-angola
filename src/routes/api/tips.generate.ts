@@ -29,8 +29,13 @@ export const Route = createFileRoute("/api/tips/generate")({
         } catch {
           body = {};
         }
-        const risk = RiskLevel.safeParse(body.risk).success ? RiskLevel.parse(body.risk) : "equilibrado";
-        const stake = Number.isFinite(body.stake) && Number(body.stake) > 0 ? Math.min(Number(body.stake), 500_000) : 1000;
+        const risk = RiskLevel.safeParse(body.risk).success
+          ? RiskLevel.parse(body.risk)
+          : "equilibrado";
+        const stake =
+          Number.isFinite(body.stake) && Number(body.stake) > 0
+            ? Math.min(Number(body.stake), 500_000)
+            : 1000;
         const dateISO = todayISO();
 
         const generated = await generateTipTicket(request, apiKey, dateISO, risk);
@@ -61,22 +66,30 @@ export const Route = createFileRoute("/api/tips/generate")({
 
         const totalOdds = totalOddsOf(selections);
 
-        const createRes = await createTicket(auth.userId, {
-          source: "ai",
-          stake,
-          risk,
-          rationale: `${tip.rationale} ${tip.stake_advice}`.trim(),
-          selections: selections.map((sel) => ({
-            fixtureId: sel.fixtureId,
-            home: sel.home,
-            away: sel.away,
-            kickoff: sel.kickoff,
-            league: sel.league,
-            pick: sel.pick,
-            odds: sel.odds,
-          })),
-        }, { trusted: true });
-        if (!createRes.ok) return Response.json({ error: createRes.error ?? "Falha ao guardar bilhete" }, { status: 500 });
+        const createRes = await createTicket(
+          auth.userId,
+          {
+            source: "ai",
+            stake,
+            risk,
+            rationale: `${tip.rationale} ${tip.stake_advice}`.trim(),
+            selections: selections.map((sel) => ({
+              fixtureId: sel.fixtureId,
+              home: sel.home,
+              away: sel.away,
+              kickoff: sel.kickoff,
+              league: sel.league,
+              pick: sel.pick,
+              odds: sel.odds,
+            })),
+          },
+          { trusted: true },
+        );
+        if (!createRes.ok)
+          return Response.json(
+            { error: createRes.error ?? "Falha ao guardar bilhete" },
+            { status: 500 },
+          );
         return Response.json({ demo, tip, ticket: createRes.ticket });
       },
     },
