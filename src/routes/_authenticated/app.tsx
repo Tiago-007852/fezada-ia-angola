@@ -119,12 +119,14 @@ function Pending({ email, blocked }: { email: string | undefined; blocked: boole
         </div>
       )}
 
-      <ol className="mx-auto max-w-sm space-y-2 rounded-xl border border-border bg-card p-4 text-left text-sm">
-        <li><b className="text-primary">1.</b> Abre o Multicaixa Express e envia <b>{SUBSCRIPTION_PRICE}</b> para <b>+244 {PAYMENT_NUMBER}</b>.</li>
-        <li><b className="text-primary">2.</b> Tira print ou guarda o comprovativo do pagamento.</li>
-        <li><b className="text-primary">3.</b> Envia o comprovativo no WhatsApp <b>{ADMIN_WHATSAPP}</b> com o teu email de registo.</li>
-        <li><b className="text-primary">4.</b> O admin ativa a tua conta — depois é só atualizar esta página.</li>
-      </ol>
+      {!blocked && (
+        <ol className="mx-auto max-w-sm space-y-2 rounded-xl border border-border bg-card p-4 text-left text-sm">
+          <li><b className="text-primary">1.</b> Abre o Multicaixa Express e envia <b>{SUBSCRIPTION_PRICE}</b> para <b>+244 {PAYMENT_NUMBER}</b>.</li>
+          <li><b className="text-primary">2.</b> Tira print ou guarda o comprovativo do pagamento.</li>
+          <li><b className="text-primary">3.</b> Envia o comprovativo no WhatsApp <b>{ADMIN_WHATSAPP}</b> com o teu email de registo.</li>
+          <li><b className="text-primary">4.</b> O admin ativa a tua conta — depois é só atualizar esta página.</li>
+        </ol>
+      )}
       <Button asChild size="lg" className="w-full max-w-sm">
         <a href={`${ADMIN_WHATSAPP_LINK}?text=${msg}`} target="_blank" rel="noreferrer">Enviar comprovativo no WhatsApp</a>
       </Button>
