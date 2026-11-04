@@ -12,4 +12,12 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Preview dev server deste workspace: porta fixa 3000, atada a todas as interfaces.
+  vite: {
+    server: {
+      port: 3000,
+      host: true,
+      strictPort: true,
+    },
+  },
 });

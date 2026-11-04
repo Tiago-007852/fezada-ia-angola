@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveScores, type LiveGame } from "@/lib/live";
 import { cn } from "@/lib/utils";
 
@@ -33,13 +33,24 @@ function MinuteBadge({ g }: { g: LiveGame }) {
   );
 }
 
+// Garante markup idêntico no SSR e na primeira hidratação (o estado do react-query
+// diverge entre servidor e browser e provocava falha de hidratação com tela branca).
+function useIsClient(): boolean {
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => setIsClient(true), []);
+  return isClient;
+}
+
 export function LiveTicker() {
+  const isClient = useIsClient();
   const { games, demo, loading } = useLiveScores();
   const row = [...games, ...games];
   return (
     <div className="overflow-hidden border-y border-border bg-card/80 backdrop-blur">
       <div className="flex w-max animate-ticker gap-3 py-2 text-xs">
-        {games.length === 0 ? (
+        {!isClient ? (
+          <span className="px-4 text-muted-foreground">Resultados ao vivo</span>
+        ) : games.length === 0 ? (
           <span className="px-4 text-muted-foreground">
             {loading ? "A carregar jogos ao vivo…" : demo ? "Resultados ao vivo indisponíveis de momento." : "Sem jogos ao vivo neste momento."}
           </span>
