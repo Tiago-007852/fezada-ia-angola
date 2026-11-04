@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock } from "lucide-react";
+import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, ADMIN_WHATSAPP, ADMIN_WHATSAPP_LINK } from "@/lib/auth";
 import { Chat } from "@/components/Chat";
@@ -74,8 +75,24 @@ function AppPage() {
   );
 }
 
+const SUBSCRIPTION_PRICE = "5.000 Kz/mês";
+const PAYMENT_NUMBER = "950 596 073";
+
 function Pending({ email, blocked }: { email: string | undefined; blocked: boolean }) {
-  const msg = encodeURIComponent(`Olá! Quero ativar a minha conta Fezada IA. Email: ${email ?? ""}`);
+  const [copied, setCopied] = useState(false);
+  const msg = encodeURIComponent(`Olá! Já paguei a subscrição Fezada IA (${SUBSCRIPTION_PRICE}) via Multicaixa Express. Segue o comprovativo. Email: ${email ?? ""}`);
+
+  const copyNumber = async () => {
+    try {
+      await navigator.clipboard.writeText("244950596073");
+      setCopied(true);
+      toast.success("Número copiado!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Não consegui copiar. Aponta: 244 950 596 073");
+    }
+  };
+
   return (
     <div className="space-y-5 px-4 py-10 text-center">
       <Clock className="mx-auto h-12 w-12 text-primary" />
@@ -85,13 +102,31 @@ function Pending({ email, blocked }: { email: string | undefined; blocked: boole
           ? "O teu acesso foi restringido. Fala connosco no WhatsApp para regularizar."
           : "Registo feito, camarada! Para desbloquear o Camarada IA, os bilhetes e os resultados ao vivo, falta só ativar a subscrição."}
       </p>
+
+      {!blocked && (
+        <div className="mx-auto max-w-sm space-y-2 rounded-xl border border-border bg-card p-4 text-left text-sm">
+          <p className="font-display text-base font-bold">
+            Subscrição: <span className="text-primary">{SUBSCRIPTION_PRICE}</span>
+          </p>
+          <p className="text-muted-foreground">Pagamento por Multicaixa Express para:</p>
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+            <span className="font-mono text-base font-bold tracking-wide">+244 {PAYMENT_NUMBER}</span>
+            <Button type="button" size="sm" variant="secondary" onClick={copyNumber}>
+              {copied ? <Check className="mr-1 h-4 w-4" /> : <Copy className="mr-1 h-4 w-4" />}
+              {copied ? "Copiado" : "Copiar"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <ol className="mx-auto max-w-sm space-y-2 rounded-xl border border-border bg-card p-4 text-left text-sm">
-        <li><b className="text-primary">1.</b> Envia mensagem no WhatsApp para <b>{ADMIN_WHATSAPP}</b>.</li>
-        <li><b className="text-primary">2.</b> Recebes os dados de pagamento e envias o comprovativo.</li>
-        <li><b className="text-primary">3.</b> O admin ativa a tua conta — depois é só atualizar esta página.</li>
+        <li><b className="text-primary">1.</b> Abre o Multicaixa Express e envia <b>{SUBSCRIPTION_PRICE}</b> para <b>+244 {PAYMENT_NUMBER}</b>.</li>
+        <li><b className="text-primary">2.</b> Tira print ou guarda o comprovativo do pagamento.</li>
+        <li><b className="text-primary">3.</b> Envia o comprovativo no WhatsApp <b>{ADMIN_WHATSAPP}</b> com o teu email de registo.</li>
+        <li><b className="text-primary">4.</b> O admin ativa a tua conta — depois é só atualizar esta página.</li>
       </ol>
       <Button asChild size="lg" className="w-full max-w-sm">
-        <a href={`${ADMIN_WHATSAPP_LINK}?text=${msg}`} target="_blank" rel="noreferrer">Falar no WhatsApp</a>
+        <a href={`${ADMIN_WHATSAPP_LINK}?text=${msg}`} target="_blank" rel="noreferrer">Enviar comprovativo no WhatsApp</a>
       </Button>
       <button onClick={() => location.reload()} className="block w-full text-xs text-muted-foreground underline">Já paguei — atualizar</button>
     </div>
