@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, tool, type UIMessage } from "ai";
 import { z } from "zod/v4";
-import type { Database } from "@/integrations/supabase/types";
-import { MATCHES, BOOKIES } from "@/lib/odds";
+import { authenticateUser } from "@/lib/access.server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { generateTipTicket } from "@/lib/ai/tips.server";
 import { createTicket } from "@/lib/tickets.server";
 
@@ -14,8 +13,7 @@ Conheces Girabola, Liga Portugal, Premier League, Champions League e competiçõ
 Ajudas a montar bilhetes, explicas cotações, gestão de banca e comparas Elephant Bet, Premier Bet e Bantu Bet.
 Regras: nunca prometas ganhos garantidos; incentiva jogo responsável (apostar só o que pode perder, 18+). Respostas curtas e práticas, ótimas para telemóvel.
 Tens a tool 'criar_palpite': quando o utilizador pedir uma fezada/bilhete ("monta-me um bilhete", "palpite"), chama-a informando o nível de risco ("seguro"|"equilibrado"|"arriscado") em vez de improvisares picks a cabeça; depois comenta o resultado. Não inventes cotações — o bilhete vem com odds reais do feed.
-Cotações de referência desta semana (1X2, Elephant/Premier/Bantu):
-${MATCHES.map((m) => `${m.league}: ${m.home} vs ${m.away} (${m.kickoff}) — ${BOOKIES.map((b) => `${b.name} ${m.odds[b.id]["1"]}/${m.odds[b.id].X}/${m.odds[b.id]["2"]}`).join("; ")}`).join("\n")}`;
+Não tens cotações em memória: nunca cites odds de cabeça. Para odds reais usa a tool 'criar_palpite' ou manda o utilizador ao Comparador da app, e lembra que as cotações mudam até ao apito inicial.`;
 
 function tipDateISO(): string {
   const now = new Date();
@@ -39,22 +37,23 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-        if (!token) return new Response("Sessão em falta", { status: 401 });
-        const key = process.env["SUPABASE_PUBLISHABLE_KEY"]!;
-        const sb = createClient<Database>(process.env["SUPABASE_URL"]!, key, {
-          auth: { persistSession: false, autoRefreshToken: false },
-          global: { headers: { Authorization: `Bearer ${token}`, apikey: key } },
-        });
-        const { data: u } = await sb.auth.getUser(token);
-        if (!u.user) return new Response("Sessão inválida", { status: 401 });
-        const { data: profile } = await sb.from("profiles").select("status").eq("id", u.user.id).maybeSingle();
-        if (profile?.status !== "active") return new Response("Conta ainda não ativada", { status: 403 });
+        const auth = await authenticateUser(request, { requireActive: true });
+        if (!auth.ok) return auth.response;
+        const rl = rateLimit(`chat:${auth.userId}`, 20, 60_000);
+        if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) return new Response("IA não configurada", { status: 500 });
-        const body = (await request.json()) as { messages?: UIMessage[] };
-        if (!Array.isArray(body.messages)) return new Response("Pedido inválido", { status: 400 });
+        const raw = await request.text();
+        if (raw.length > 60_000) return new Response("Conversa demasiado longa", { status: 413 });
+        let body: { messages?: UIMessage[] };
+        try {
+          body = JSON.parse(raw) as { messages?: UIMessage[] };
+        } catch {
+          return new Response("Pedido inválido", { status: 400 });
+        }
+        if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 60)
+          return new Response("Pedido inválido", { status: 400 });
         const { streamGatewayChat } = await import("@/lib/ai/gateway.server");
         const tools = {
           criar_palpite: tool({
@@ -71,7 +70,7 @@ export const Route = createFileRoute("/api/chat")({
                   return { ok: true, demo: true, rationale: tip.rationale, stake_advice: tip.stake_advice, responsible_note: tip.responsible_note, selections: tip.selections };
                 }
                 const byId = new Map(generated.candidates.map((c) => [c.fixtureId, c]));
-                const created = await createTicket(token, {
+                const created = await createTicket(auth.userId, {
                   source: "ai",
                   stake: 1000,
                   risk,
@@ -88,7 +87,7 @@ export const Route = createFileRoute("/api/chat")({
                       odds: m?.availableOdds[s.pick] ?? 1,
                     };
                   }),
-                });
+                }, { trusted: true });
                 if (!created.ok) return { ok: false, error: created.error ?? "Falha ao guardar bilhete" };
                 return { ok: true, demo: false, ticket: created.ticket };
               } catch (e) {

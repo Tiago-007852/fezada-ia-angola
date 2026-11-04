@@ -4,7 +4,8 @@ import { useState } from "react";
 import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock, Copy, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useMe, ADMIN_WHATSAPP, ADMIN_WHATSAPP_LINK } from "@/lib/auth";
+import { useMe, ADMIN_WHATSAPP, ADMIN_WHATSAPP_LINK, SUBSCRIPTION_PRICE, PAYMENT_NUMBER } from "@/lib/auth";
+import { isProfileActive, isProfileExpired } from "@/lib/access.shared";
 import { useLiveScores } from "@/lib/live";
 import { Chat } from "@/components/Chat";
 import { Comparator } from "@/components/Comparator";
@@ -39,7 +40,8 @@ function AppPage() {
   };
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">A carregar…</div>;
-  const active = me?.profile?.status === "active";
+  const active = isProfileActive(me?.profile);
+  const expired = isProfileExpired(me?.profile);
 
   return (
     <div className="mx-auto min-h-dvh max-w-xl">
@@ -55,7 +57,7 @@ function AppPage() {
       <LiveTicker />
 
       {!active ? (
-        <Pending email={me?.user.email} blocked={me?.profile?.status === "blocked"} />
+        <Pending email={me?.user.email} blocked={me?.profile?.status === "blocked"} expired={expired} />
       ) : (
         <>
           <main className="px-4 pb-20 pt-4">
@@ -84,31 +86,30 @@ function AppPage() {
   );
 }
 
-const SUBSCRIPTION_PRICE = "5.000 Kz/mês";
-const PAYMENT_NUMBER = "950 596 073";
-
-function Pending({ email, blocked }: { email: string | undefined; blocked: boolean }) {
+function Pending({ email, blocked, expired }: { email: string | undefined; blocked: boolean; expired: boolean }) {
   const [copied, setCopied] = useState(false);
   const msg = encodeURIComponent(`Olá! Já paguei a subscrição Fezada IA (${SUBSCRIPTION_PRICE}) via Multicaixa Express. Segue o comprovativo. Email: ${email ?? ""}`);
 
   const copyNumber = async () => {
     try {
-      await navigator.clipboard.writeText("244950596073");
+      await navigator.clipboard.writeText(`244${PAYMENT_NUMBER.replace(/\D/g, "")}`);
       setCopied(true);
       toast.success("Número copiado!");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Não consegui copiar. Aponta: 244 950 596 073");
+      toast.error(`Não consegui copiar. Aponta: 244 ${PAYMENT_NUMBER}`);
     }
   };
 
   return (
     <div className="space-y-5 px-4 py-10 text-center">
       <Clock className="mx-auto h-12 w-12 text-primary" />
-      <h1 className="text-2xl font-bold">{blocked ? "Acesso suspenso" : "Conta à espera de ativação"}</h1>
+      <h1 className="text-2xl font-bold">{blocked ? "Acesso suspenso" : expired ? "Subscrição expirada" : "Conta à espera de ativação"}</h1>
       <p className="text-sm text-muted-foreground">
         {blocked
           ? "O teu acesso foi restringido. Fala connosco no WhatsApp para regularizar."
+          : expired
+          ? "A tua subscrição terminou. Renova o pagamento para voltares a usar o Camarada IA, os bilhetes e os resultados ao vivo."
           : "Registo feito, camarada! Para desbloquear o Camarada IA, os bilhetes e os resultados ao vivo, falta só ativar a subscrição."}
       </p>
 

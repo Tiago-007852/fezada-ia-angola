@@ -47,6 +47,9 @@ function Index() {
           })}
         </div>
         <p className="mt-10 text-center text-[11px] text-muted-foreground">Jogo responsável · Apenas maiores de 18 · Aposta só o que podes perder.</p>
+        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+          <Link to="/termos" className="underline">Termos</Link> · <Link to="/privacidade" className="underline">Privacidade</Link> · <Link to="/jogo-responsavel" className="underline">Jogo responsável</Link>
+        </p>
       </main>
     </div>
   );

@@ -5,6 +5,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe } from "@/lib/auth";
+import { isProfileActive, SUBSCRIPTION_DAYS } from "@/lib/access.shared";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -39,12 +40,13 @@ function Admin() {
           status: v.status,
           payment_confirmed: v.status === "active",
           activated_at: v.status === "active" ? new Date().toISOString() : null,
+          expires_at: v.status === "active" ? new Date(Date.now() + SUBSCRIPTION_DAYS * 86_400_000).toISOString() : null,
         })
         .eq("id", v.id);
       if (error) throw error;
     },
     onSuccess: (_, v) => {
-      toast.success(v.status === "active" ? "Acesso liberado" : "Acesso restringido");
+      toast.success(v.status === "active" ? `Acesso liberado por ${SUBSCRIPTION_DAYS} dias` : "Acesso restringido");
       qc.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -87,11 +89,19 @@ function Admin() {
                   {statusLabel[u.status]}
                 </span>
                 <span className="ml-2 text-muted-foreground">Pagamento: {u.payment_confirmed ? "confirmado" : "por confirmar"}</span>
+                {u.status === "active" && (
+                  <span className={cn("ml-2", isProfileActive(u) ? "text-muted-foreground" : "text-destructive")}>
+                    {u.expires_at ? `${isProfileActive(u) ? "válido até" : "expirou em"} ${new Date(u.expires_at).toLocaleDateString("pt-PT")}` : "sem validade"}
+                  </span>
+                )}
               </p>
             </div>
             {u.id !== me.user.id &&
               (u.status === "active" ? (
-                <Button size="sm" variant="destructive" disabled={update.isPending} onClick={() => update.mutate({ id: u.id, status: "blocked" })}>Restringir</Button>
+                <div className="flex flex-col gap-1">
+                  <Button size="sm" variant="secondary" disabled={update.isPending} onClick={() => update.mutate({ id: u.id, status: "active" })}>Renovar +{SUBSCRIPTION_DAYS}d</Button>
+                  <Button size="sm" variant="destructive" disabled={update.isPending} onClick={() => update.mutate({ id: u.id, status: "blocked" })}>Restringir</Button>
+                </div>
               ) : (
                 <Button size="sm" disabled={update.isPending} onClick={() => update.mutate({ id: u.id, status: "active" })}>Liberar</Button>
               ))}

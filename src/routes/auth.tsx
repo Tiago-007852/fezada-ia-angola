@@ -28,6 +28,7 @@ function AuthPage() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [adult, setAdult] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,10 +44,11 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "up") {
+        if (!adult) throw new Error("Tens de confirmar que tens 18 anos ou mais.");
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: window.location.origin + "/app", data: { full_name: name } },
+          options: { emailRedirectTo: window.location.origin + "/app", data: { full_name: name, age_confirmed: true } },
         });
         if (error) throw error;
         if (!data.session) setSent(true);
@@ -61,7 +63,21 @@ function AuthPage() {
     }
   };
 
+  const forgot = async () => {
+    if (!email) {
+      toast.error("Escreve primeiro o teu email.");
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/reset-password" });
+    if (error) toast.error(error.message);
+    else toast.success("Se o email existir, enviámos um link para redefinires a palavra-passe.");
+  };
+
   const google = async () => {
+    if (mode === "up" && !adult) {
+      toast.error("Tens de confirmar que tens 18 anos ou mais.");
+      return;
+    }
     const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/auth" });
     if (r.error) toast.error(r.error.message ?? "Falha no Google");
   };
@@ -86,6 +102,17 @@ function AuthPage() {
             )}
             <div><Label htmlFor="e">Email</Label><Input id="e" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
             <div><Label htmlFor="p">Palavra-passe</Label><Input id="p" type="password" minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
+            {mode === "in" && (
+              <button type="button" onClick={forgot} className="text-xs text-muted-foreground underline">Esqueci-me da palavra-passe</button>
+            )}
+            {mode === "up" && (
+              <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                <input type="checkbox" className="mt-0.5" checked={adult} onChange={(e) => setAdult(e.target.checked)} />
+                <span>
+                  Tenho 18 anos ou mais e aceito os <Link to="/termos" className="underline">Termos</Link>, a <Link to="/privacidade" className="underline">Política de Privacidade</Link> e o <Link to="/jogo-responsavel" className="underline">aviso de jogo responsável</Link>.
+                </span>
+              </label>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>{loading ? "Aguarda…" : mode === "in" ? "Entrar" : "Registar"}</Button>
           </form>
           <button onClick={() => setMode(mode === "in" ? "up" : "in")} className="mt-4 text-sm text-muted-foreground">

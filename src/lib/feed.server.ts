@@ -418,3 +418,47 @@ export async function fetchPrediction(fixtureId: string): Promise<ApiPrediction 
     last5Form: { home: tt?.home?.last_5_form ?? null, away: tt?.away?.last_5_form ?? null },
   };
 }
+
+// ---- Validação server-side de bilhetes manuais -------------------------------------------
+
+export type FixtureMeta = { fixtureId: string; home: string; away: string; league: string; kickoffISO: string; status: string };
+
+/** Dados oficiais dos jogos (nomes, liga, hora, estado) — não confiar no que o cliente envia. */
+export async function fetchFixtureMetas(ids: string[]): Promise<Map<string, FixtureMeta> | null> {
+  const unique = [...new Set(ids)].slice(0, 20);
+  if (unique.length === 0) return new Map();
+  const data = await apiSports<ApiFixture>("/fixtures", { ids: unique.join("-") }, 60_000);
+  if (!data) return null;
+  return new Map(
+    data.map((f) => [
+      String(f.fixture.id),
+      {
+        fixtureId: String(f.fixture.id),
+        home: f.teams.home.name,
+        away: f.teams.away.name,
+        league: f.league.name,
+        kickoffISO: f.fixture.date,
+        status: f.fixture.status.short,
+      },
+    ]),
+  );
+}
+
+/** Melhor odd 1X2 disponível entre todos os bookmakers do feed para um jogo. */
+export async function fetchBestOdds1X2(fixtureId: string): Promise<Record<"1" | "X" | "2", number | null> | null> {
+  const rows = await apiSports<ApiOdds>("/odds", { fixture: fixtureId }, 5 * 60_000);
+  if (!rows) return null;
+  const best: Record<"1" | "X" | "2", number | null> = { "1": null, X: null, "2": null };
+  const map: Record<string, "1" | "X" | "2"> = { Home: "1", Draw: "X", Away: "2" };
+  for (const row of rows) {
+    for (const bk of row.bookmakers ?? []) {
+      const bet = bk.bets?.find((b) => b.name === "Match Winner");
+      for (const v of bet?.values ?? []) {
+        const key = map[v.value];
+        const n = parseFloat(v.odd);
+        if (key && Number.isFinite(n) && n > 1 && (best[key] === null || n > best[key]!)) best[key] = n;
+      }
+    }
+  }
+  return best;
+}

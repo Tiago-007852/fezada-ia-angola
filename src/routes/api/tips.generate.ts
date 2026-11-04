@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import { authenticateUser } from "@/lib/access.server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { generateTipTicket } from "@/lib/ai/tips.server";
 import { createTicket } from "@/lib/tickets.server";
 import { RiskLevel } from "@/lib/tips.shared";
@@ -15,19 +15,10 @@ export const Route = createFileRoute("/api/tips/generate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-        if (!token) return new Response("Sessão em falta", { status: 401 });
-        const url = process.env["SUPABASE_URL"];
-        const pub = process.env["SUPABASE_PUBLISHABLE_KEY"];
-        if (!url || !pub) return new Response("Supabase não configurado", { status: 500 });
-        const sb = createClient<Database>(url, pub, {
-          auth: { persistSession: false, autoRefreshToken: false },
-          global: { headers: { Authorization: `Bearer ${token}` } },
-        });
-        const { data: u } = await sb.auth.getUser(token);
-        if (!u.user) return new Response("Sessão inválida", { status: 401 });
-        const { data: profile } = await sb.from("profiles").select("status").eq("id", u.user.id).maybeSingle();
-        if (profile?.status !== "active") return new Response("Conta ainda não ativada", { status: 403 });
+        const auth = await authenticateUser(request, { requireActive: true });
+        if (!auth.ok) return auth.response;
+        const rl = rateLimit(`tips:${auth.userId}`, 6, 10 * 60_000);
+        if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
         const apiKey = process.env["LOVABLE_API_KEY"];
         if (!apiKey) return new Response("IA não configurada", { status: 500 });
@@ -39,7 +30,7 @@ export const Route = createFileRoute("/api/tips/generate")({
           body = {};
         }
         const risk = RiskLevel.safeParse(body.risk).success ? RiskLevel.parse(body.risk) : "equilibrado";
-        const stake = body.stake && body.stake > 0 ? Math.min(body.stake, 500_000) : 1000;
+        const stake = Number.isFinite(body.stake) && Number(body.stake) > 0 ? Math.min(Number(body.stake), 500_000) : 1000;
         const dateISO = todayISO();
 
         const generated = await generateTipTicket(request, apiKey, dateISO, risk);
@@ -70,7 +61,7 @@ export const Route = createFileRoute("/api/tips/generate")({
 
         const totalOdds = totalOddsOf(selections);
 
-        const createRes = await createTicket(token, {
+        const createRes = await createTicket(auth.userId, {
           source: "ai",
           stake,
           risk,
@@ -84,7 +75,7 @@ export const Route = createFileRoute("/api/tips/generate")({
             pick: sel.pick,
             odds: sel.odds,
           })),
-        });
+        }, { trusted: true });
         if (!createRes.ok) return Response.json({ error: createRes.error ?? "Falha ao guardar bilhete" }, { status: 500 });
         return Response.json({ demo, tip, ticket: createRes.ticket });
       },

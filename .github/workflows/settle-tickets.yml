@@ -1,0 +1,20 @@
+# Liquida os bilhetes pendentes de todos os utilizadores a cada 15 minutos.
+# Configura em Settings → Secrets and variables → Actions:
+#   APP_URL              ex.: https://fezada-ia-angola.lovable.app   (sem barra final)
+#   LOVABLE_CRON_SECRET  o mesmo valor definido no servidor
+name: Settle tickets
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call settle endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.LOVABLE_CRON_SECRET }}
+        run: |
+          test -n "$APP_URL" && test -n "$CRON_SECRET" || { echo "Faltam secrets APP_URL / LOVABLE_CRON_SECRET"; exit 1; }
+          curl --fail-with-body -sS -X POST "$APP_URL/api/tickets/settle" -H "Authorization: Bearer $CRON_SECRET"

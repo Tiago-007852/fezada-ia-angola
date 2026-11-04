@@ -106,6 +106,7 @@ export type Database = {
           activated_at: string | null
           created_at: string
           email: string | null
+          expires_at: string | null
           full_name: string | null
           id: string
           payment_confirmed: boolean
@@ -115,6 +116,7 @@ export type Database = {
           activated_at?: string | null
           created_at?: string
           email?: string | null
+          expires_at?: string | null
           full_name?: string | null
           id: string
           payment_confirmed?: boolean
@@ -124,6 +126,7 @@ export type Database = {
           activated_at?: string | null
           created_at?: string
           email?: string | null
+          expires_at?: string | null
           full_name?: string | null
           id?: string
           payment_confirmed?: boolean
