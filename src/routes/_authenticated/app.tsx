@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock } from "lucide-react";
+import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, ADMIN_WHATSAPP, ADMIN_WHATSAPP_LINK } from "@/lib/auth";
 import { Chat } from "@/components/Chat";
