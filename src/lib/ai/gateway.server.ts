@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, type ModelMessage } from "ai";
+import { streamText, type ModelMessage, type ToolSet } from "ai";
 
 const RUN = "X-Lovable-AIG-Run-ID";
 
@@ -61,7 +61,13 @@ async function withRunId(response: Response, gw: ReturnType<typeof runIdFetch>) 
   return new Response(body, { status: response.status, headers });
 }
 
-export function streamGatewayChat(request: Request, apiKey: string, messages: ModelMessage[], system: string) {
+export function streamGatewayChat(
+  request: Request,
+  apiKey: string,
+  messages: ModelMessage[],
+  system: string,
+  tools?: ToolSet,
+) {
   const gw = runIdFetch(request.headers.get(RUN) ?? undefined);
   const provider = createOpenAI({
     baseURL: "https://ai.gateway.lovable.dev/v1",
@@ -73,6 +79,7 @@ export function streamGatewayChat(request: Request, apiKey: string, messages: Mo
     model: provider.responses("openai/gpt-6-astra"),
     system,
     messages,
+    ...(tools ? { tools: tools as ToolSet, toolChoice: "auto" as const } : {}),
     abortSignal: request.signal,
     providerOptions: {
       openai: {

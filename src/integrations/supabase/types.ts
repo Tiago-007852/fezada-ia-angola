@@ -14,6 +14,93 @@ export type Database = {
   }
   public: {
     Tables: {
+      tickets: {
+        Row: {
+          bookie: string | null
+          created_at: string
+          id: string
+          net_return: number | null
+          rationale: string | null
+          risk: string | null
+          settled_at: string | null
+          source: string
+          stake: number
+          status: string
+          total_odds: number | null
+          user_id: string
+        }
+        Insert: {
+          bookie?: string | null
+          created_at?: string
+          id?: string
+          net_return?: number | null
+          rationale?: string | null
+          risk?: string | null
+          settled_at?: string | null
+          source?: string
+          stake: number
+          status?: string
+          total_odds?: number | null
+          user_id: string
+        }
+        Update: {
+          bookie?: string | null
+          created_at?: string
+          id?: string
+          net_return?: number | null
+          rationale?: string | null
+          risk?: string | null
+          settled_at?: string | null
+          source?: string
+          stake?: number
+          status?: string
+          total_odds?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ticket_selections: {
+        Row: {
+          away: string
+          fixture_id: number
+          home: string
+          id: string
+          kickoff: string | null
+          league: string | null
+          market: string
+          odds: number
+          pick: string
+          result: string | null
+          ticket_id: string
+        }
+        Insert: {
+          away: string
+          fixture_id: number
+          home: string
+          id?: string
+          kickoff?: string | null
+          league?: string | null
+          market?: string
+          odds: number
+          pick: string
+          result?: string | null
+          ticket_id: string
+        }
+        Update: {
+          away?: string
+          fixture_id?: number
+          home?: string
+          id?: string
+          kickoff?: string | null
+          league?: string | null
+          market?: string
+          odds?: number
+          pick?: string
+          result?: string | null
+          ticket_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           activated_at: string | null

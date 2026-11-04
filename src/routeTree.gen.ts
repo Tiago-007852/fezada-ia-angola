@@ -15,6 +15,10 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedAppRouteImport } from './routes/_authenticated/app'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiTicketsRouteImport } from './routes/api/tickets'
+import { Route as AuthenticatedGameIdRouteImport } from './routes/_authenticated/game.$id'
+import { Route as ApiTicketsSettleRouteImport } from './routes/api/tickets.settle'
+import { Route as ApiTipsGenerateRouteImport } from './routes/api/tips.generate'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +49,26 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTicketsRoute = ApiTicketsRouteImport.update({
+  id: '/api/tickets',
+  path: '/api/tickets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedGameIdRoute = AuthenticatedGameIdRouteImport.update({
+  id: '/game/$id',
+  path: '/game/$id',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiTicketsSettleRoute = ApiTicketsSettleRouteImport.update({
+  id: '/settle',
+  path: '/settle',
+  getParentRoute: () => ApiTicketsRoute,
+} as any)
+const ApiTipsGenerateRoute = ApiTipsGenerateRouteImport.update({
+  id: '/api/tips/generate',
+  path: '/api/tips/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,6 +76,10 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AuthenticatedAdminRoute
   '/app': typeof AuthenticatedAppRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/tickets': typeof ApiTicketsRouteWithChildren
+  '/game/$id': typeof AuthenticatedGameIdRoute
+  '/api/tickets/settle': typeof ApiTicketsSettleRoute
+  '/api/tips/generate': typeof ApiTipsGenerateRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +87,10 @@ export interface FileRoutesByTo {
   '/admin': typeof AuthenticatedAdminRoute
   '/app': typeof AuthenticatedAppRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/tickets': typeof ApiTicketsRouteWithChildren
+  '/game/$id': typeof AuthenticatedGameIdRoute
+  '/api/tickets/settle': typeof ApiTicketsSettleRoute
+  '/api/tips/generate': typeof ApiTipsGenerateRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +100,34 @@ export interface FileRoutesById {
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/app': typeof AuthenticatedAppRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/tickets': typeof ApiTicketsRouteWithChildren
+  '/_authenticated/game/$id': typeof AuthenticatedGameIdRoute
+  '/api/tickets/settle': typeof ApiTicketsSettleRoute
+  '/api/tips/generate': typeof ApiTipsGenerateRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/admin' | '/app' | '/api/chat'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/app'
+    | '/api/chat'
+    | '/api/tickets'
+    | '/game/$id'
+    | '/api/tickets/settle'
+    | '/api/tips/generate'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/admin' | '/app' | '/api/chat'
+  to:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/app'
+    | '/api/chat'
+    | '/api/tickets'
+    | '/game/$id'
+    | '/api/tickets/settle'
+    | '/api/tips/generate'
   id:
     | '__root__'
     | '/'
@@ -82,6 +136,10 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/app'
     | '/api/chat'
+    | '/api/tickets'
+    | '/_authenticated/game/$id'
+    | '/api/tickets/settle'
+    | '/api/tips/generate'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -89,6 +147,8 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiTicketsRoute: typeof ApiTicketsRouteWithChildren
+  ApiTipsGenerateRoute: typeof ApiTipsGenerateRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -135,27 +195,71 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/tickets': {
+      id: '/api/tickets'
+      path: '/api/tickets'
+      fullPath: '/api/tickets'
+      preLoaderRoute: typeof ApiTicketsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/game/$id': {
+      id: '/_authenticated/game/$id'
+      path: '/game/$id'
+      fullPath: '/game/$id'
+      preLoaderRoute: typeof AuthenticatedGameIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/tickets/settle': {
+      id: '/api/tickets/settle'
+      path: '/settle'
+      fullPath: '/api/tickets/settle'
+      preLoaderRoute: typeof ApiTicketsSettleRouteImport
+      parentRoute: typeof ApiTicketsRoute
+    }
+    '/api/tips/generate': {
+      id: '/api/tips/generate'
+      path: '/api/tips/generate'
+      fullPath: '/api/tips/generate'
+      preLoaderRoute: typeof ApiTipsGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedAppRoute: typeof AuthenticatedAppRoute
+  AuthenticatedGameIdRoute: typeof AuthenticatedGameIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedAppRoute: AuthenticatedAppRoute,
+  AuthenticatedGameIdRoute: AuthenticatedGameIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
+interface ApiTicketsRouteChildren {
+  ApiTicketsSettleRoute: typeof ApiTicketsSettleRoute
+}
+
+const ApiTicketsRouteChildren: ApiTicketsRouteChildren = {
+  ApiTicketsSettleRoute: ApiTicketsSettleRoute,
+}
+
+const ApiTicketsRouteWithChildren = ApiTicketsRoute._addFileChildren(
+  ApiTicketsRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiTicketsRoute: ApiTicketsRouteWithChildren,
+  ApiTipsGenerateRoute: ApiTipsGenerateRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

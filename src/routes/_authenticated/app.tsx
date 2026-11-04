@@ -1,13 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock, Copy, Check } from "lucide-react";
+import { MessageCircle, Ticket, Radio, Shield, LogOut, Clock, Copy, Check, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useMe, ADMIN_WHATSAPP, ADMIN_WHATSAPP_LINK } from "@/lib/auth";
+import { useLiveScores } from "@/lib/live";
 import { Chat } from "@/components/Chat";
 import { Comparator } from "@/components/Comparator";
-import { LiveBoard, LiveTicker } from "@/components/LiveTicker";
+import { LiveTicker } from "@/components/LiveTicker";
+import { MatchCenter } from "@/components/MatchCenter";
+import { Tips } from "@/components/Tips";
+import { useGoalAlerts } from "@/lib/favorites";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -16,13 +20,16 @@ export const Route = createFileRoute("/_authenticated/app")({
   component: AppPage,
 });
 
-type Tab = "chat" | "bilhetes" | "live";
+type Tab = "chat" | "palpites" | "bilhetes" | "live";
 
 function AppPage() {
   const { data: me, isLoading } = useMe();
   const [tab, setTab] = useState<Tab>("chat");
   const qc = useQueryClient();
   const navigate = useNavigate();
+
+  const liveScores = useLiveScores();
+  useGoalAlerts(liveScores.games);
 
   const signOut = async () => {
     await qc.cancelQueries();
@@ -53,13 +60,15 @@ function AppPage() {
         <>
           <main className="px-4 pb-20 pt-4">
             {tab === "chat" && <Chat />}
+            {tab === "palpites" && <Tips />}
             {tab === "bilhetes" && <Comparator />}
-            {tab === "live" && <LiveBoard />}
+            {tab === "live" && <MatchCenter />}
           </main>
           <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur">
-            <div className="mx-auto grid max-w-xl grid-cols-3">
+            <div className="mx-auto grid max-w-xl grid-cols-4">
               {([
                 ["chat", "Camarada", MessageCircle],
+                ["palpites", "Palpites", Sparkles],
                 ["bilhetes", "Bilhetes", Ticket],
                 ["live", "Ao vivo", Radio],
               ] as const).map(([id, label, Icon]) => (
