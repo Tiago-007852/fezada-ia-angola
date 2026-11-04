@@ -9,6 +9,12 @@ export type LiveGame = {
   hs: number;
   as: number;
   minute: number;
+  status: string;
+  homeLogo: string;
+  awayLogo: string;
+  leagueLogo: string;
+  country: string;
+  leagueId: number;
 };
 
 export function useLiveScores(): { games: LiveGame[]; demo: boolean; loading: boolean } {
