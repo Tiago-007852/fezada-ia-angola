@@ -24,11 +24,13 @@ export const getUpcomingOdds = createServerFn({ method: "GET" })
     if (!isDateISO(d)) throw new Error("Data inválida (AAAA-MM-DD)");
     return d;
   })
-  .handler(async ({ data }): Promise<{ date: string; games: UpcomingWithOdds[]; demo: boolean }> => {
-    const games = await fetchUpcomingOdds(data);
-    if (!games) return { date: data, games: [], demo: true };
-    return { date: data, games, demo: false };
-  });
+  .handler(
+    async ({ data }): Promise<{ date: string; games: UpcomingWithOdds[]; demo: boolean }> => {
+      const games = await fetchUpcomingOdds(data);
+      if (!games) return { date: data, games: [], demo: true };
+      return { date: data, games, demo: false };
+    },
+  );
 
 export const getGameDetail = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -46,7 +48,8 @@ export const getStandings = createServerFn({ method: "GET" })
   .validator((d: { leagueId: number; season: number }) => {
     const leagueId = Number(d.leagueId);
     const season = Number(d.season);
-    if (!Number.isInteger(leagueId) || !Number.isInteger(season)) throw new Error("Liga/temporada inválidas");
+    if (!Number.isInteger(leagueId) || !Number.isInteger(season))
+      throw new Error("Liga/temporada inválidas");
     return { leagueId, season };
   })
   .handler(async ({ data }): Promise<{ standings: LeagueStanding | null; demo: boolean }> => {

@@ -1,9 +1,20 @@
-// Lógica server-side dos bilhetes: criação (auth + valida odds) e liquidação com resultados reais.
-import { createClient } from "@supabase/supabase-js";
+// Lógica server-side dos bilhetes. O cliente NÃO escreve em tickets/ticket_selections (RLS só
+// permite leitura): criação e liquidação passam por aqui com o service role, depois de
+// autenticar o utilizador e validar tudo contra dados oficiais.
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { apiSports } from "./api.server";
+import { fetchBestOdds1X2, fetchFixtureMetas } from "./feed.server";
+import {
+  evaluateSelection,
+  evaluateTicket,
+  type FixtureOutcome,
+  type SelResult,
+} from "./settle.shared";
 import { netReturn, totalOddsOf } from "./ticket.shared";
-import { pickLabel } from "./tips.shared";
-import type { Database } from "@/integrations/supabase/types";
+
+export const MAX_STAKE = 500_000;
+const ODDS_TOLERANCE = 1.02; // 2% de folga face à melhor odd do feed (as odds mexem entre pedidos)
+const PICKS = new Set(["1", "X", "2"]);
 
 export type NewSelectionInput = {
   fixtureId: string;
@@ -25,35 +36,107 @@ export type CreateTicketInput = {
 
 export type CreateTicketOutput = { ok: boolean; error?: string; status?: number; ticket?: unknown };
 
-export async function createTicket(token: string, input: CreateTicketInput): Promise<CreateTicketOutput> {
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !key) return { ok: false, error: "Supabase não configurado", status: 500 };
-  const sb = createClient<Database>(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  const { data: u } = await sb.auth.getUser(token);
-  if (!u.user) return { ok: false, error: "Sessão inválida", status: 401 };
-  const { data: profile } = await sb.from("profiles").select("status").eq("id", u.user.id).maybeSingle();
-  if (profile?.status !== "active") return { ok: false, error: "Conta ainda não ativada", status: 403 };
-
-  if (!input.selections || input.selections.length < 1 || input.selections.length > 10)
+/**
+ * Cria um bilhete para um utilizador JÁ autenticado e ativo (ver authenticateUser).
+ * `trusted` = as seleções foram geradas no servidor a partir do feed (fluxo do IA); sem isso,
+ * odds, jogos e horas são verificados contra a API-Sports.
+ */
+export async function createTicket(
+  userId: string,
+  input: CreateTicketInput,
+  opts: { trusted: boolean },
+): Promise<CreateTicketOutput> {
+  const sels = input.selections;
+  if (!Array.isArray(sels) || sels.length < 1 || sels.length > 10)
     return { ok: false, error: "Bilhete precisa de 1 a 10 seleções", status: 400 };
-  if (!(input.stake > 0)) return { ok: false, error: "Valor da aposta inválido", status: 400 };
+  const stake = Number(input.stake);
+  if (!Number.isFinite(stake) || stake <= 0 || stake > MAX_STAKE)
+    return {
+      ok: false,
+      error: `Valor da aposta inválido (máx. ${MAX_STAKE.toLocaleString("pt-PT")} Kz)`,
+      status: 400,
+    };
 
-  const totalOdds = totalOddsOf(input.selections.map((s) => ({ odds: s.odds, pick: s.pick })));
+  for (const s of sels) {
+    if (!/^\d{1,12}$/.test(String(s.fixtureId)))
+      return { ok: false, error: "Jogo inválido", status: 400 };
+    if (!PICKS.has(s.pick)) return { ok: false, error: "Escolha inválida", status: 400 };
+    if (!Number.isFinite(s.odds) || s.odds <= 1 || s.odds > 1000)
+      return { ok: false, error: "Odds inválidas", status: 400 };
+  }
+  if (new Set(sels.map((s) => s.fixtureId)).size !== sels.length)
+    return { ok: false, error: "Não podes repetir o mesmo jogo no bilhete", status: 400 };
+
+  let rows = sels.map((s) => ({
+    fixture_id: Number(s.fixtureId),
+    home: String(s.home).slice(0, 80),
+    away: String(s.away).slice(0, 80),
+    kickoff: s.kickoff,
+    league: String(s.league ?? "").slice(0, 80),
+    market: "1X2",
+    pick: s.pick,
+    odds: s.odds,
+  }));
+
+  if (!opts.trusted) {
+    const metas = await fetchFixtureMetas(sels.map((s) => s.fixtureId));
+    if (!metas)
+      return {
+        ok: false,
+        error: "Não foi possível validar os jogos agora. Tenta de novo.",
+        status: 503,
+      };
+    const now = Date.now();
+    const next: typeof rows = [];
+    for (const s of sels) {
+      const meta = metas.get(String(s.fixtureId));
+      if (!meta) return { ok: false, error: "Jogo não encontrado", status: 400 };
+      if (!["NS", "TBD"].includes(meta.status) || new Date(meta.kickoffISO).getTime() <= now)
+        return {
+          ok: false,
+          error: `${meta.home} vs ${meta.away} já começou ou não aceita apostas`,
+          status: 400,
+        };
+      const best = await fetchBestOdds1X2(s.fixtureId);
+      if (!best)
+        return {
+          ok: false,
+          error: "Não foi possível validar as cotações agora. Tenta de novo.",
+          status: 503,
+        };
+      const real = best[s.pick as "1" | "X" | "2"];
+      if (real === null || s.odds > real * ODDS_TOLERANCE)
+        return {
+          ok: false,
+          error: `Cotação inválida ou desatualizada em ${meta.home} vs ${meta.away}`,
+          status: 400,
+        };
+      next.push({
+        fixture_id: Number(s.fixtureId),
+        home: meta.home,
+        away: meta.away,
+        kickoff: meta.kickoffISO,
+        league: meta.league,
+        market: "1X2",
+        pick: s.pick,
+        odds: s.odds,
+      });
+    }
+    rows = next;
+  }
+
+  const totalOdds = totalOddsOf(rows.map((r) => ({ odds: r.odds, pick: r.pick })));
   if (!(totalOdds > 1)) return { ok: false, error: "Odds inválidas", status: 400 };
-  const r = netReturn(input.stake, totalOdds);
+  const r = netReturn(stake, totalOdds);
 
-  const { data: ticket, error: tErr } = await sb
+  const { data: ticket, error: tErr } = await supabaseAdmin
     .from("tickets")
     .insert({
-      user_id: u.user.id,
-      source: input.source,
-      risk: input.risk ?? null,
-      rationale: input.rationale ?? null,
-      stake: input.stake,
+      user_id: userId,
+      source: opts.trusted ? input.source : "manual",
+      risk: input.risk ? String(input.risk).slice(0, 30) : null,
+      rationale: input.rationale ? String(input.rationale).slice(0, 2000) : null,
+      stake,
       total_odds: totalOdds,
       bookie: "referência",
       net_return: r.net,
@@ -61,120 +144,106 @@ export async function createTicket(token: string, input: CreateTicketInput): Pro
     })
     .select("*")
     .single();
-  if (tErr || !ticket) return { ok: false, error: tErr?.message ?? "Falha ao criar bilhete", status: 500 };
+  if (tErr || !ticket) return { ok: false, error: "Falha ao criar bilhete", status: 500 };
 
-  const rows = input.selections.map((s) => ({
-    ticket_id: ticket.id,
-    fixture_id: Number(s.fixtureId),
-    home: s.home,
-    away: s.away,
-    kickoff: s.kickoff,
-    league: s.league,
-    market: "1X2",
-    pick: s.pick,
-    odds: s.odds,
-  }));
-  const { error: sErr } = await sb.from("ticket_selections").insert(rows);
-  if (sErr) return { ok: false, error: sErr.message, status: 500 };
-
+  const { error: sErr } = await supabaseAdmin
+    .from("ticket_selections")
+    .insert(rows.map((row) => ({ ...row, ticket_id: ticket.id })));
+  if (sErr) {
+    await supabaseAdmin.from("tickets").delete().eq("id", ticket.id); // não deixar bilhete órfão
+    return { ok: false, error: "Falha ao guardar seleções", status: 500 };
+  }
   return { ok: true, ticket };
 }
 
 type ApiFixtureResult = {
   fixture: { id: number; status: { short: string } };
-  teams: { home: { id: number }; away: { id: number } };
   score: { fulltime: { home: number | null; away: number | null } };
 };
 
+type PendingSel = {
+  id: string;
+  pick: string;
+  result: string | null;
+  fixture_id: number;
+  odds: number;
+  kickoff: string | null;
+};
 type PendingTicket = {
   id: string;
   stake: number;
-  status: string;
   user_id: string;
-  selections: { id: string; pick: string; result: string | null; fixture_id: number }[];
+  ticket_selections: PendingSel[];
 };
 
-/** Liquida bilhetes pendentes do próprio utilizador (RLS) com os finais reais da API-Sports. */
-export async function settleTickets(token: string | null): Promise<{ settled: number }> {
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
-  if (!url || !key) throw new Error("Supabase não configurado");
-
-  const headers: Record<string, string> = { "apikey": key };
-  let sb: ReturnType<typeof createClient<Database>>;
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-    sb = createClient<Database>(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-      global: { headers },
-    });
-  } else {
-    const secret = process.env["SUPABASE_SERVICE_ROLE"];
-    if (!secret) throw new Error("Sem credenciais para liquidação");
-    headers["apikey"] = secret;
-    headers["Authorization"] = `Bearer ${secret}`;
-    sb = createClient<Database>(url, secret, { auth: { persistSession: false } });
-  }
-
-  const { data: pending } = await sb
+/**
+ * Liquida bilhetes pendentes com os resultados finais da API-Sports.
+ * `scope.userId` = só os bilhetes desse utilizador; `"all"` = todos (apenas para o agendador).
+ */
+export async function settleTickets(
+  scope: { userId: string } | "all",
+): Promise<{ settled: number }> {
+  let q = supabaseAdmin
     .from("tickets")
-    .select("id, stake, status, user_id, ticket_selections ( id, pick, result, fixture_id, odds )")
+    .select("id, stake, user_id, ticket_selections ( id, pick, result, fixture_id, odds, kickoff )")
     .eq("status", "pending")
-    .limit(30);
+    .order("created_at", { ascending: true })
+    .limit(scope === "all" ? 100 : 30);
+  if (scope !== "all") q = q.eq("user_id", scope.userId);
+  const { data: pending } = await q;
 
-  const tickets = ((pending ?? []) as unknown) as (Omit<PendingTicket, "selections"> & { ticket_selections: PendingTicket["selections"] })[];
+  const tickets = (pending ?? []) as unknown as PendingTicket[];
   let settled = 0;
 
   for (const t of tickets) {
-    const sels = (t.ticket_selections ?? []).filter((s) => s.result !== "win" && s.result !== "lost");
-    if (sels.length === 0) continue;
-    const ids = [...new Set(sels.map((s) => s.fixture_id))].slice(0, 20);
-    const results = await apiSports<ApiFixtureResult>("/fixtures", { ids: ids.join("-") }, 60_000);
-    if (!results || results.length === 0) continue;
-    const byId = new Map(results.map((f) => [String(f.fixture.id), f]));
+    const sels = t.ticket_selections ?? [];
+    const open = sels.filter((s) => s.result === null || s.result === "pending");
+    const resultOf = new Map<string, SelResult>(
+      sels.map((s) => [s.id, (s.result ?? "pending") as SelResult]),
+    );
 
-    let anyLost = false;
-    let anyPending = false;
-    for (const s of sels) {
-      const f = byId.get(String(s.fixture_id));
-      if (!f) {
-        anyPending = true;
-        continue;
+    if (open.length > 0) {
+      const ids = [...new Set(open.map((s) => s.fixture_id))].slice(0, 20);
+      const results = await apiSports<ApiFixtureResult>(
+        "/fixtures",
+        { ids: ids.join("-") },
+        60_000,
+      );
+      if (!results || results.length === 0) continue;
+      const byId = new Map<string, FixtureOutcome>(
+        results.map((f) => [
+          String(f.fixture.id),
+          {
+            status: f.fixture.status.short,
+            home: f.score.fulltime.home,
+            away: f.score.fulltime.away,
+          },
+        ]),
+      );
+      for (const s of open) {
+        const res = evaluateSelection(s.pick, byId.get(String(s.fixture_id)), s.kickoff);
+        if (res === "pending") continue;
+        resultOf.set(s.id, res);
+        await supabaseAdmin.from("ticket_selections").update({ result: res }).eq("id", s.id);
       }
-      const status = f.fixture.status.short;
-      const finished = ["FT", "AET", "PEN"].includes(status);
-      if (!finished) {
-        anyPending = true;
-        continue;
-      }
-      const hs = f.score.fulltime.home;
-      const as = f.score.fulltime.away;
-      if (hs === null || as === null) {
-        anyPending = true;
-        continue;
-      }
-      const win = s.pick === "1" ? hs > as : s.pick === "X" ? hs === as : as > hs;
-      await sb.from("ticket_selections").update({ result: win ? "win" : "lost" }).eq("id", s.id);
-      if (!win) anyLost = true;
     }
 
-    const newStatus = anyLost ? "lost" : anyPending ? "pending" : "won";
-    if (newStatus !== "pending") {
-      if (newStatus === "won") {
-        const allSels = t.ticket_selections ?? [];
-        const totalOdds = totalOddsOf(allSels.map((sel) => ({ odds: oddsOf(sel), pick: sel.pick })));
-        const r = netReturn(Number(t.stake), totalOdds);
-        await sb.from("tickets").update({ status: "won", net_return: r.net, settled_at: new Date().toISOString() }).eq("id", t.id);
-      } else {
-        await sb.from("tickets").update({ status: "lost", settled_at: new Date().toISOString() }).eq("id", t.id);
-      }
-      settled++;
-    }
+    const outcome = evaluateTicket(
+      Number(t.stake),
+      sels.map((s) => ({ odds: Number(s.odds), result: resultOf.get(s.id) ?? "pending" })),
+    );
+    if (outcome.status === "pending") continue;
+    await supabaseAdmin
+      .from("tickets")
+      .update({
+        status: outcome.status,
+        ...(outcome.status === "won" || outcome.status === "void"
+          ? { net_return: outcome.netReturn }
+          : {}),
+        settled_at: new Date().toISOString(),
+      })
+      .eq("id", t.id);
+    settled++;
   }
   return { settled };
-}
-
-function oddsOf(s: unknown): number {
-  const sel = s as { odds?: number };
-  return Number(sel.odds ?? 1);
 }

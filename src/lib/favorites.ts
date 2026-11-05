@@ -65,8 +65,16 @@ export function useGoalAlerts(games: LiveGame[]) {
       const current: GameScore = { id: g.id, hs: g.hs, as: g.as, status: g.status };
       if (old && g.status === "1H" && (g.hs > old.hs || g.as > old.as)) {
         const scoredHome = g.hs > old.hs;
-        const team = scoredHome === favorites.includes(g.home) ? favorites.find((t) => t === (scoredHome ? g.home : g.away)) : scoredHome ? g.home : g.away;
-        toast.success(`⚽ Golo! ${team ?? (scoredHome ? g.home : g.away)} ${g.hs}-${g.as} — ${g.minute}'`, { duration: 8000 });
+        const team =
+          scoredHome === favorites.includes(g.home)
+            ? favorites.find((t) => t === (scoredHome ? g.home : g.away))
+            : scoredHome
+              ? g.home
+              : g.away;
+        toast.success(
+          `⚽ Golo! ${team ?? (scoredHome ? g.home : g.away)} ${g.hs}-${g.as} — ${g.minute}'`,
+          { duration: 8000 },
+        );
       }
       if (!old || old.hs !== g.hs || old.as !== g.as || old.status !== g.status) {
         changed = true;

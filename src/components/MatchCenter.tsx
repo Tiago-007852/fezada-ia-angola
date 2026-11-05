@@ -31,9 +31,33 @@ export function isoDate(offsetDays = 0): string {
   return new Date(d.getTime() - tzMs).toISOString().slice(0, 10);
 }
 
-export function Crest({ src, alt, size = 28 }: { src: string | undefined; alt: string; size?: number }) {
-  if (!src) return <span style={{ width: size, height: size }} className="inline-block shrink-0 rounded-full bg-muted" />;
-  return <img src={src} alt={alt} width={size} height={size} loading="lazy" className="shrink-0 object-contain" style={{ width: size, height: size }} />;
+export function Crest({
+  src,
+  alt,
+  size = 28,
+}: {
+  src: string | undefined;
+  alt: string;
+  size?: number;
+}) {
+  if (!src)
+    return (
+      <span
+        style={{ width: size, height: size }}
+        className="inline-block shrink-0 rounded-full bg-muted"
+      />
+    );
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={size}
+      height={size}
+      loading="lazy"
+      className="shrink-0 object-contain"
+      style={{ width: size, height: size }}
+    />
+  );
 }
 
 type DayTab = "live" | "upcoming";
@@ -45,7 +69,12 @@ export function MatchCenter() {
     for (let i = 0; i <= 3; i++) {
       const iso = isoDate(i);
       const d = new Date(iso + "T12:00:00");
-      const label = i === 0 ? "Hoje" : i === 1 ? "Amanhã" : d.toLocaleDateString("pt-AO", { weekday: "short", day: "2-digit", month: "2-digit" });
+      const label =
+        i === 0
+          ? "Hoje"
+          : i === 1
+            ? "Amanhã"
+            : d.toLocaleDateString("pt-AO", { weekday: "short", day: "2-digit", month: "2-digit" });
       list.push({ iso, label, offset: i });
     }
     return list;
@@ -57,13 +86,23 @@ export function MatchCenter() {
       <div className="flex gap-2">
         <button
           onClick={() => setDay("live")}
-          className={cn("flex-1 rounded-lg border px-3 py-2 text-xs font-bold", day === "live" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground")}
+          className={cn(
+            "flex-1 rounded-lg border px-3 py-2 text-xs font-bold",
+            day === "live"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card text-muted-foreground",
+          )}
         >
           Ao vivo
         </button>
         <button
           onClick={() => setDay("upcoming")}
-          className={cn("flex-1 rounded-lg border px-3 py-2 text-xs font-bold", day === "upcoming" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground")}
+          className={cn(
+            "flex-1 rounded-lg border px-3 py-2 text-xs font-bold",
+            day === "upcoming"
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-border bg-card text-muted-foreground",
+          )}
         >
           Jogos do dia
         </button>
@@ -78,7 +117,12 @@ export function MatchCenter() {
               <button
                 key={d.iso}
                 onClick={() => setSelectedDay(d.offset)}
-                className={cn("shrink-0 rounded-full border px-3 py-1 text-xs font-semibold", selectedDay === d.offset ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground")}
+                className={cn(
+                  "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold",
+                  selectedDay === d.offset
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground",
+                )}
               >
                 {d.label}
               </button>
@@ -99,11 +143,23 @@ function LiveSection() {
   const { isFavorite, toggle } = useFavorites();
 
   const groups = useMemo(() => {
-    const list = games.filter((g) => (filter === "all" ? true : filter === "HT" ? g.status === "HT" : isRunning(g.status)));
-    const map = new Map<string, { name: string; country: string; logo: string; gameId: string; games: LiveGame[] }>();
+    const list = games.filter((g) =>
+      filter === "all" ? true : filter === "HT" ? g.status === "HT" : isRunning(g.status),
+    );
+    const map = new Map<
+      string,
+      { name: string; country: string; logo: string; gameId: string; games: LiveGame[] }
+    >();
     for (const g of list) {
       const k = `${g.leagueId}-${g.league}`;
-      if (!map.has(k)) map.set(k, { name: g.league, country: g.country, logo: g.leagueLogo, gameId: `lg-${g.leagueId}`, games: [] });
+      if (!map.has(k))
+        map.set(k, {
+          name: g.league,
+          country: g.country,
+          logo: g.leagueLogo,
+          gameId: `lg-${g.leagueId}`,
+          games: [],
+        });
       map.get(k)!.games.push(g);
     }
     return [...map.values()];
@@ -112,29 +168,67 @@ function LiveSection() {
   return (
     <div className="space-y-3">
       <div className="flex gap-2 overflow-x-auto pb-1">
-        {([["all", "Todos"], ["running", "A decorrer"], ["HT", "Intervalo"]] as const).map(([id, label]) => (
-          <FilterPill key={id} id={id} label={label} filter={filter} setFilter={setFilter} games={games} />
+        {(
+          [
+            ["all", "Todos"],
+            ["running", "A decorrer"],
+            ["HT", "Intervalo"],
+          ] as const
+        ).map(([id, label]) => (
+          <FilterPill
+            key={id}
+            id={id}
+            label={label}
+            filter={filter}
+            setFilter={setFilter}
+            games={games}
+          />
         ))}
       </div>
-      {demo && <p className="text-xs text-muted-foreground">Resultados ao vivo indisponíveis — a tentar ligar à API-Sports.</p>}
+      {demo && (
+        <p className="text-xs text-muted-foreground">
+          Resultados ao vivo indisponíveis — a tentar ligar à API-Sports.
+        </p>
+      )}
       {loading && <p className="text-sm text-muted-foreground">A carregar…</p>}
       {!loading && !demo && groups.length === 0 && (
         <p className="rounded-lg border border-border bg-card p-4 text-center text-sm text-muted-foreground">
-          {games.length === 0 ? "Sem jogos ao vivo neste momento. Vê os jogos do dia!" : "Nenhum jogo neste filtro."}
+          {games.length === 0
+            ? "Sem jogos ao vivo neste momento. Vê os jogos do dia!"
+            : "Nenhum jogo neste filtro."}
         </p>
       )}
       {groups.map((grp) => (
         <LeagueCard key={grp.gameId} logo={grp.logo} name={grp.name} country={grp.country}>
           {grp.games.map((g, gi) => (
             <li key={g.id} className="px-3">
-              <Link to="/game/$id" params={{ id: g.id }} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-3">
-                <TeamCell logo={g.homeLogo} name={g.home} fav={isFavorite(g.home)} onFav={() => toggle(g.home)} />
+              <Link
+                to="/game/$id"
+                params={{ id: g.id }}
+                className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-3"
+              >
+                <TeamCell
+                  logo={g.homeLogo}
+                  name={g.home}
+                  fav={isFavorite(g.home)}
+                  onFav={() => toggle(g.home)}
+                />
                 <div className="flex min-w-[72px] flex-col items-center gap-1">
-                  <span className="font-display text-xl font-extrabold tabular-nums text-primary">{g.hs} - {g.as}</span>
+                  <span className="font-display text-xl font-extrabold tabular-nums text-primary">
+                    {g.hs} - {g.as}
+                  </span>
                   <MinuteBadge game={g} />
-                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">{STATUS[g.status] ?? g.status}</span>
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                    {STATUS[g.status] ?? g.status}
+                  </span>
                 </div>
-                <TeamCell logo={g.awayLogo} name={g.away} fav={isFavorite(g.away)} onFav={() => toggle(g.away)} alignRight />
+                <TeamCell
+                  logo={g.awayLogo}
+                  name={g.away}
+                  fav={isFavorite(g.away)}
+                  onFav={() => toggle(g.away)}
+                  alignRight
+                />
               </Link>
             </li>
           ))}
@@ -165,7 +259,12 @@ function FilterPill({
   return (
     <button
       onClick={() => setFilter(id)}
-      className={cn("shrink-0 rounded-full border px-3 py-1 text-xs font-semibold", filter === id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground")}
+      className={cn(
+        "shrink-0 rounded-full border px-3 py-1 text-xs font-semibold",
+        filter === id
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-card text-muted-foreground",
+      )}
     >
       {label} <span className="opacity-70">{counts[id]}</span>
     </button>
@@ -175,7 +274,12 @@ function FilterPill({
 function MinuteBadge({ game }: { game: { status: string; minute: number } }) {
   const running = isRunning(game.status);
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold", running ? "bg-accent/20 text-accent" : "bg-primary/15 text-primary")}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold",
+        running ? "bg-accent/20 text-accent" : "bg-primary/15 text-primary",
+      )}
+    >
       {running && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />}
       {game.status === "HT" ? "INT" : `${game.minute}'`}
     </span>
@@ -194,10 +298,20 @@ function UpcomingSection({ date }: { date: string }) {
 
   const groups = useMemo(() => {
     const list = data?.games ?? [];
-    const map = new Map<string, { name: string; country: string; logo: string; gameId: string; games: typeof list }>();
+    const map = new Map<
+      string,
+      { name: string; country: string; logo: string; gameId: string; games: typeof list }
+    >();
     for (const g of list) {
       const k = `${g.leagueId}-${g.league}`;
-      if (!map.has(k)) map.set(k, { name: g.league, country: g.country, logo: g.leagueLogo, gameId: k, games: [] });
+      if (!map.has(k))
+        map.set(k, {
+          name: g.league,
+          country: g.country,
+          logo: g.leagueLogo,
+          gameId: k,
+          games: [],
+        });
       map.get(k)!.games.push(g);
     }
     return [...map.values()];
@@ -211,11 +325,14 @@ function UpcomingSection({ date }: { date: string }) {
       {isLoading && <p className="text-sm text-muted-foreground">A carregar jogos…</p>}
       {data?.demo && !isLoading && (
         <p className="rounded-lg border border-border bg-card p-4 text-center text-sm text-muted-foreground">
-          O feed de jogos/odds está indisponível agora. As cotações usadas no comparador são de demonstração.
+          O feed de jogos/odds está indisponível agora. As cotações usadas no comparador são de
+          demonstração.
         </p>
       )}
       {!isLoading && data && !data.demo && groups.length === 0 && (
-        <p className="rounded-lg border border-border bg-card p-4 text-center text-sm text-muted-foreground">Sem jogos a decorrer neste dia na base.</p>
+        <p className="rounded-lg border border-border bg-card p-4 text-center text-sm text-muted-foreground">
+          Sem jogos a decorrer neste dia na base.
+        </p>
       )}
       {groups.map((grp) => (
         <LeagueCard
@@ -223,21 +340,52 @@ function UpcomingSection({ date }: { date: string }) {
           logo={grp.logo}
           name={grp.name}
           country={grp.country}
-          withStandings={data && !data.demo ? { leagueId: Number(grp.gameId.split("-")[0]), season: Number(grp.games[0]?.kickoffISO ? new Date(grp.games[0].kickoffISO).getMonth() < 6 ? new Date(grp.games[0].kickoffISO).getFullYear() - 1 : new Date(grp.games[0].kickoffISO).getFullYear() : new Date().getFullYear()) } : undefined}
+          withStandings={
+            data && !data.demo
+              ? {
+                  leagueId: Number(grp.gameId.split("-")[0]),
+                  season: Number(
+                    grp.games[0]?.kickoffISO
+                      ? new Date(grp.games[0].kickoffISO).getMonth() < 6
+                        ? new Date(grp.games[0].kickoffISO).getFullYear() - 1
+                        : new Date(grp.games[0].kickoffISO).getFullYear()
+                      : new Date().getFullYear(),
+                  ),
+                }
+              : undefined
+          }
         >
           {grp.games.map((g) => (
             <li key={g.fixtureId} className="px-3">
-              <Link to="/game/$id" params={{ id: g.fixtureId }} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-3">
-                <TeamCell logo={g.homeLogo} name={g.home} fav={isFavorite(g.home)} onFav={() => toggle(g.home)} />
+              <Link
+                to="/game/$id"
+                params={{ id: g.fixtureId }}
+                className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 py-3"
+              >
+                <TeamCell
+                  logo={g.homeLogo}
+                  name={g.home}
+                  fav={isFavorite(g.home)}
+                  onFav={() => toggle(g.home)}
+                />
                 <div className="flex min-w-[66px] flex-col items-center gap-0.5">
-                  <span className="text-sm font-bold tabular-nums">{kickoffLabel(g.kickoffISO)}</span>
+                  <span className="text-sm font-bold tabular-nums">
+                    {kickoffLabel(g.kickoffISO)}
+                  </span>
                   {g.odds[0] && (
                     <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-semibold text-primary">
-                      {g.odds[0].home?.toFixed(2) ?? "–"} / {g.odds[0].draw?.toFixed(2) ?? "–"} / {g.odds[0].away?.toFixed(2) ?? "–"}
+                      {g.odds[0].home?.toFixed(2) ?? "–"} / {g.odds[0].draw?.toFixed(2) ?? "–"} /{" "}
+                      {g.odds[0].away?.toFixed(2) ?? "–"}
                     </span>
                   )}
                 </div>
-                <TeamCell logo={g.awayLogo} name={g.away} fav={isFavorite(g.away)} onFav={() => toggle(g.away)} alignRight />
+                <TeamCell
+                  logo={g.awayLogo}
+                  name={g.away}
+                  fav={isFavorite(g.away)}
+                  onFav={() => toggle(g.away)}
+                  alignRight
+                />
               </Link>
             </li>
           ))}
@@ -249,7 +397,19 @@ function UpcomingSection({ date }: { date: string }) {
 
 // ============================= Cartão de liga + tabela =============================
 
-function LeagueCard({ logo, name, country, children, withStandings }: { logo: string | undefined; name: string; country: string; children: React.ReactNode; withStandings?: { leagueId: number; season: number } | undefined }) {
+function LeagueCard({
+  logo,
+  name,
+  country,
+  children,
+  withStandings,
+}: {
+  logo: string | undefined;
+  name: string;
+  country: string;
+  children: React.ReactNode;
+  withStandings?: { leagueId: number; season: number } | undefined;
+}) {
   const [show, setShow] = useState(false);
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card">
@@ -261,13 +421,22 @@ function LeagueCard({ logo, name, country, children, withStandings }: { logo: st
         </div>
       </header>
       {withStandings && (
-        <button onClick={() => setShow((s) => !s)} className="flex w-full items-center gap-1 border-b border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground">
+        <button
+          onClick={() => setShow((s) => !s)}
+          className="flex w-full items-center gap-1 border-b border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground"
+        >
           <Table2 className="h-3.5 w-3.5" />
           {show ? "Esconder" : "Classificação"}
-          {show ? <ChevronDown className="ml-auto h-3.5 w-3.5" /> : <ChevronRight className="ml-auto h-3.5 w-3.5" />}
+          {show ? (
+            <ChevronDown className="ml-auto h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="ml-auto h-3.5 w-3.5" />
+          )}
         </button>
       )}
-      {withStandings && show && <StandingsSection leagueId={withStandings.leagueId} season={withStandings.season} />}
+      {withStandings && show && (
+        <StandingsSection leagueId={withStandings.leagueId} season={withStandings.season} />
+      )}
       <ul className="divide-y divide-border">{children}</ul>
     </section>
   );
@@ -279,9 +448,14 @@ function StandingsSection({ leagueId, season }: { leagueId: number; season: numb
     queryFn: () => getStandings({ data: { leagueId, season } }),
     enabled: typeof window !== "undefined",
   });
-  if (isLoading) return <p className="px-3 py-2 text-[11px] text-muted-foreground">A carregar a tabela…</p>;
+  if (isLoading)
+    return <p className="px-3 py-2 text-[11px] text-muted-foreground">A carregar a tabela…</p>;
   if (error || !data?.standings) {
-    return <p className="px-3 py-2 text-[11px] text-muted-foreground">A tabela estará disponível assim que o feed responder.</p>;
+    return (
+      <p className="px-3 py-2 text-[11px] text-muted-foreground">
+        A tabela estará disponível assim que o feed responder.
+      </p>
+    );
   }
   const grp = data.standings.groups[0];
   if (!grp) return null;
@@ -302,7 +476,10 @@ function StandingsSection({ leagueId, season }: { leagueId: number; season: numb
         {grp.rows.slice(0, 12).map((r) => (
           <tr key={r.rank} className="border-t border-border/60">
             <td className="px-2 py-1 font-bold text-primary">{r.rank}</td>
-            <td className="flex items-center gap-1.5 py-1"><Crest src={r.teamLogo} alt={r.team} size={14} /> <span className="truncate">{r.team}</span></td>
+            <td className="flex items-center gap-1.5 py-1">
+              <Crest src={r.teamLogo} alt={r.team} size={14} />{" "}
+              <span className="truncate">{r.team}</span>
+            </td>
             <td className="px-1 py-1 text-center">{r.played}</td>
             <td className="px-1 py-1 text-center">{r.win}</td>
             <td className="px-1 py-1 text-center">{r.draw}</td>
@@ -315,7 +492,19 @@ function StandingsSection({ leagueId, season }: { leagueId: number; season: numb
   );
 }
 
-export function TeamCell({ logo, name, fav, onFav, alignRight }: { logo: string | undefined; name: string; fav: boolean; onFav: () => void; alignRight?: boolean }) {
+export function TeamCell({
+  logo,
+  name,
+  fav,
+  onFav,
+  alignRight,
+}: {
+  logo: string | undefined;
+  name: string;
+  fav: boolean;
+  onFav: () => void;
+  alignRight?: boolean;
+}) {
   return (
     <div className={cn("flex min-w-0 items-center gap-2", alignRight && "flex-row-reverse")}>
       <Crest src={logo} alt={name} />
@@ -330,7 +519,9 @@ export function TeamCell({ logo, name, fav, onFav, alignRight }: { logo: string 
         aria-label={fav ? "Deixar de seguir" : "Segue esta equipa"}
         className="shrink-0"
       >
-        <Star className={cn("h-3.5 w-3.5", fav ? "fill-accent text-accent" : "text-muted-foreground")} />
+        <Star
+          className={cn("h-3.5 w-3.5", fav ? "fill-accent text-accent" : "text-muted-foreground")}
+        />
       </button>
     </div>
   );

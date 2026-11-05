@@ -34,12 +34,19 @@ export type UpcomingWithOdds = UpcomingFixture & {
 type ApiFixture = {
   fixture: { id: number; date: string; status: { short: string } };
   league: { id: number; name: string; logo: string; country: string };
-  teams: { home: { id: number; name: string; logo: string }; away: { id: number; name: string; logo: string } };
+  teams: {
+    home: { id: number; name: string; logo: string };
+    away: { id: number; name: string; logo: string };
+  };
 };
 
 type ApiOdds = {
   fixture: { id: number };
-  bookmakers: { id: number; name: string; bets: { id: number; name: string; values: { value: string; odd: string }[] }[] }[];
+  bookmakers: {
+    id: number;
+    name: string;
+    bets: { id: number; name: string; values: { value: string; odd: string }[] }[];
+  }[];
 };
 
 export function feedAvailable(): boolean {
@@ -82,13 +89,26 @@ export async function fetchUpcomingOdds(dateISO: string): Promise<UpcomingWithOd
       const n = found ? parseFloat(found.odd) : NaN;
       return Number.isFinite(n) && n > 1 ? n : null;
     };
-    const entry: BookieOdds = { bookie: bookie.name ?? "Bet365", home: v("Home"), draw: v("Draw"), away: v("Away") };
+    const entry: BookieOdds = {
+      bookie: bookie.name ?? "Bet365",
+      home: v("Home"),
+      draw: v("Draw"),
+      away: v("Away"),
+    };
     const list = byId.get(String(row.fixture.id)) ?? [];
     list.push(entry);
     byId.set(String(row.fixture.id), list);
   }
   // Prioriza as ligas que o app cobre e os jogos com odds disponíveis.
-  const prefer = ["Premier League", "Primeira Liga", "UEFA Champions League", "CAF Champions League", "Liga dos Campeões", "Girabola", "Taça de Angola"];
+  const prefer = [
+    "Premier League",
+    "Primeira Liga",
+    "UEFA Champions League",
+    "CAF Champions League",
+    "Liga dos Campeões",
+    "Girabola",
+    "Taça de Angola",
+  ];
   return fixtures
     .map((f) => ({ ...f, odds: byId.get(f.fixtureId) ?? [] }))
     .sort((a, b) => {
@@ -97,7 +117,9 @@ export async function fetchUpcomingOdds(dateISO: string): Promise<UpcomingWithOd
       if (pa !== pb) return pa - pb;
       const la = prefer.findIndex((n) => a.league === n);
       const lb = prefer.findIndex((n) => b.league === n);
-      return (la === -1 ? 99 : la) - (lb === -1 ? 99 : lb) || a.kickoffISO.localeCompare(b.kickoffISO);
+      return (
+        (la === -1 ? 99 : la) - (lb === -1 ? 99 : lb) || a.kickoffISO.localeCompare(b.kickoffISO)
+      );
     });
 }
 
@@ -172,7 +194,9 @@ type ApiEvent = {
 };
 
 type ApiDetailFixture = ApiFixture & {
-  fixture: ApiFixture["fixture"] & { status: { short: string; long: string; elapsed: number | null } };
+  fixture: ApiFixture["fixture"] & {
+    status: { short: string; long: string; elapsed: number | null };
+  };
   season: number;
   score: { fulltime: { home: number | null; away: number | null } };
 };
@@ -198,7 +222,11 @@ export async function fetchGameDetail(fixtureId: string): Promise<GameDetail | n
   const [ev, st, h2h, lineupsRows] = await Promise.all([
     apiSports<ApiEvent>("/fixtures/events", { fixture: fixtureId }, 30_000),
     apiSports<TeamStatsRow>("/fixtures/statistics", { fixture: fixtureId }, 30_000),
-    apiSports<ApiDetailFixture>("/fixtures/headtohead", { h2h: `${f.teams.home.id}-${f.teams.away.id}`, last: 5 }, 60_000),
+    apiSports<ApiDetailFixture>(
+      "/fixtures/headtohead",
+      { h2h: `${f.teams.home.id}-${f.teams.away.id}`, last: 5 },
+      60_000,
+    ),
     apiSports<ApiLineup>("/fixtures/lineups", { fixture: fixtureId }, 60_000),
   ]);
 
@@ -222,7 +250,8 @@ export async function fetchGameDetail(fixtureId: string): Promise<GameDetail | n
         stats.push({ stat: s.type, home: s.value, away: awayByType.get(s.type) ?? null });
       }
       for (const s of awayRow?.statistics ?? []) {
-        if (!homeRow.statistics.some((h) => h.type === s.type)) stats.push({ stat: s.type, home: null, away: s.value });
+        if (!homeRow.statistics.some((h) => h.type === s.type))
+          stats.push({ stat: s.type, home: null, away: s.value });
       }
     }
   }
@@ -310,14 +339,46 @@ export type LeagueStanding = {
 
 type ApiStandings = {
   league: { id: number; name: string; country: string; logo: string; season: number };
-  standings: { name: string; update: string } & { rank: number; team: { name: string; logo: string }; all: { played: number; win: number; draw: number; lose: number; goals: { for: number; against: number } }; points: number; form: string | null }[];
+  standings: { name: string; update: string } & {
+    rank: number;
+    team: { name: string; logo: string };
+    all: {
+      played: number;
+      win: number;
+      draw: number;
+      lose: number;
+      goals: { for: number; against: number };
+    };
+    points: number;
+    form: string | null;
+  }[];
 };
 
-export async function fetchStandings(leagueId: number, season: number): Promise<LeagueStanding | null> {
-  const data = await apiSports<ApiStandings>("/standings", { league: leagueId, season }, 10 * 60_000);
+export async function fetchStandings(
+  leagueId: number,
+  season: number,
+): Promise<LeagueStanding | null> {
+  const data = await apiSports<ApiStandings>(
+    "/standings",
+    { league: leagueId, season },
+    10 * 60_000,
+  );
   const root = data?.[0];
   if (!root?.standings) return null;
-  const raw = root.standings as unknown as { name: string; rank: number; team: { name: string; logo: string }; all: { played: number; win: number; draw: number; lose: number; goals: { for: number; against: number } }; points: number; form: string | null }[];
+  const raw = root.standings as unknown as {
+    name: string;
+    rank: number;
+    team: { name: string; logo: string };
+    all: {
+      played: number;
+      win: number;
+      draw: number;
+      lose: number;
+      goals: { for: number; against: number };
+    };
+    points: number;
+    form: string | null;
+  }[];
   const groups = new Map<string, StandingRow[]>();
   for (const r of raw) {
     const g = (r as { name?: string }).name ?? "Classificação";
@@ -348,10 +409,16 @@ export async function fetchStandings(leagueId: number, season: number): Promise<
 }
 
 // Formas recentes de uma equipa (últimos 5), para o contexto de palpites
-export async function fetchTeamForm(teamId: number, leagueId: number | null, season: number): Promise<string | null> {
+export async function fetchTeamForm(
+  teamId: number,
+  leagueId: number | null,
+  season: number,
+): Promise<string | null> {
   const data = await apiSports<ApiDetailFixture>(
     "/fixtures",
-    leagueId ? { team: teamId, league: leagueId, season, last: 5 } : { team: teamId, season, last: 5 },
+    leagueId
+      ? { team: teamId, league: leagueId, season, last: 5 }
+      : { team: teamId, season, last: 5 },
     10 * 60_000,
   );
   const games = data ?? [];
@@ -395,7 +462,11 @@ type ApiPredResponse = {
 };
 
 export async function fetchPrediction(fixtureId: string): Promise<ApiPrediction | null> {
-  const data = await apiSports<ApiPredResponse>("/predictions", { fixture: fixtureId }, 10 * 60_000);
+  const data = await apiSports<ApiPredResponse>(
+    "/predictions",
+    { fixture: fixtureId },
+    10 * 60_000,
+  );
   const main = data?.[0];
   if (!main?.predictions) return null;
   const pct = (s: string | undefined) => {
@@ -403,7 +474,12 @@ export async function fetchPrediction(fixtureId: string): Promise<ApiPrediction 
     const n = parseInt(s, 10);
     return Number.isFinite(n) ? n : null;
   };
-  const tt = (main as unknown as { predictions: ApiPredResponse["predictions"]; teams?: { home?: { last_5_form?: string | null }; away?: { last_5_form?: string | null } } }).teams;
+  const tt = (
+    main as unknown as {
+      predictions: ApiPredResponse["predictions"];
+      teams?: { home?: { last_5_form?: string | null }; away?: { last_5_form?: string | null } };
+    }
+  ).teams;
   void main.comparison;
   return {
     percentHome: pct(main.predictions.percent.home),
@@ -417,4 +493,58 @@ export async function fetchPrediction(fixtureId: string): Promise<ApiPrediction 
     },
     last5Form: { home: tt?.home?.last_5_form ?? null, away: tt?.away?.last_5_form ?? null },
   };
+}
+
+// ---- Validação server-side de bilhetes manuais -------------------------------------------
+
+export type FixtureMeta = {
+  fixtureId: string;
+  home: string;
+  away: string;
+  league: string;
+  kickoffISO: string;
+  status: string;
+};
+
+/** Dados oficiais dos jogos (nomes, liga, hora, estado) — não confiar no que o cliente envia. */
+export async function fetchFixtureMetas(ids: string[]): Promise<Map<string, FixtureMeta> | null> {
+  const unique = [...new Set(ids)].slice(0, 20);
+  if (unique.length === 0) return new Map();
+  const data = await apiSports<ApiFixture>("/fixtures", { ids: unique.join("-") }, 60_000);
+  if (!data) return null;
+  return new Map(
+    data.map((f) => [
+      String(f.fixture.id),
+      {
+        fixtureId: String(f.fixture.id),
+        home: f.teams.home.name,
+        away: f.teams.away.name,
+        league: f.league.name,
+        kickoffISO: f.fixture.date,
+        status: f.fixture.status.short,
+      },
+    ]),
+  );
+}
+
+/** Melhor odd 1X2 disponível entre todos os bookmakers do feed para um jogo. */
+export async function fetchBestOdds1X2(
+  fixtureId: string,
+): Promise<Record<"1" | "X" | "2", number | null> | null> {
+  const rows = await apiSports<ApiOdds>("/odds", { fixture: fixtureId }, 5 * 60_000);
+  if (!rows) return null;
+  const best: Record<"1" | "X" | "2", number | null> = { "1": null, X: null, "2": null };
+  const map: Record<string, "1" | "X" | "2"> = { Home: "1", Draw: "X", Away: "2" };
+  for (const row of rows) {
+    for (const bk of row.bookmakers ?? []) {
+      const bet = bk.bets?.find((b) => b.name === "Match Winner");
+      for (const v of bet?.values ?? []) {
+        const key = map[v.value];
+        const n = parseFloat(v.odd);
+        if (key && Number.isFinite(n) && n > 1 && (best[key] === null || n > best[key]!))
+          best[key] = n;
+      }
+    }
+  }
+  return best;
 }

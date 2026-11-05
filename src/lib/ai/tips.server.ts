@@ -6,8 +6,19 @@
 
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject } from "ai";
-import { TIP_SCHEMA, type CandidateMatch, type RiskLevel, type TipOutput, pickAllowedOdds } from "@/lib/tips.shared";
-import { fetchPrediction, fetchUpcomingOdds, fetchTeamForm, type UpcomingWithOdds } from "@/lib/feed.server";
+import {
+  TIP_SCHEMA,
+  type CandidateMatch,
+  type RiskLevel,
+  type TipOutput,
+  pickAllowedOdds,
+} from "@/lib/tips.shared";
+import {
+  fetchPrediction,
+  fetchUpcomingOdds,
+  fetchTeamForm,
+  type UpcomingWithOdds,
+} from "@/lib/feed.server";
 import { MATCHES, netReturn } from "@/lib/odds";
 
 /** Converte os jogos do feed real em candidatos (odds de referência = a melhor odd disponível). */
@@ -49,7 +60,13 @@ type TipContext =
   | {
       kind: "real";
       matches: CandidateMatch[];
-      predictions: { fixtureId: string; home: string; draw: string; away: string; advice: string }[];
+      predictions: {
+        fixtureId: string;
+        home: string;
+        draw: string;
+        away: string;
+        advice: string;
+      }[];
       forms: { fixtureId: string; home: string; away: string }[];
     }
   | { kind: "demo"; matches: CandidateMatch[] };
@@ -62,7 +79,13 @@ export async function buildTipContext(dateISO: string): Promise<TipContext> {
     if (matches.length === 0) throw new Error("sem odds reais");
 
     // Previsões + formas para os primeiros jogos (limita consumo de quota)
-    const predictions: { fixtureId: string; home: string; draw: string; away: string; advice: string }[] = [];
+    const predictions: {
+      fixtureId: string;
+      home: string;
+      draw: string;
+      away: string;
+      advice: string;
+    }[] = [];
     const forms: { fixtureId: string; home: string; away: string }[] = [];
     const byId = new Map(games.map((g) => [g.fixtureId, g]));
     for (const m of matches.slice(0, 5)) {
@@ -104,12 +127,18 @@ function buildPrompt(context: TipContext, risk: RiskLevel): string {
     context.kind === "real" && context.predictions.length
       ? "\nPrevisões e formas da API-Sports:\n" +
         context.predictions
-          .map((p) => `Jogo ${p.fixtureId}: casa ${p.home}% / empate ${p.draw}% / fora ${p.away}% — conselho: ${p.advice || "n/d"}`)
+          .map(
+            (p) =>
+              `Jogo ${p.fixtureId}: casa ${p.home}% / empate ${p.draw}% / fora ${p.away}% — conselho: ${p.advice || "n/d"}`,
+          )
           .join("\n") +
         "\n" +
         context.forms
           .filter((f) => f.home !== "n/d" || f.away !== "n/d")
-          .map((f) => `Jogo ${f.fixtureId}: forma casa ${f.home} (V/vitória, E/empate, D/derrota) — fora ${f.away}`)
+          .map(
+            (f) =>
+              `Jogo ${f.fixtureId}: forma casa ${f.home} (V/vitória, E/empate, D/derrota) — fora ${f.away}`,
+          )
           .join("\n")
       : "";
   const isDemo = context.kind === "demo";
@@ -166,7 +195,10 @@ export async function generateTipTicket(
       }
       return true;
     });
-    if (valid.length === 0) return { error: "Os picks do modelo não têm cotações disponíveis agora. Tenta novamente, camarada." };
+    if (valid.length === 0)
+      return {
+        error: "Os picks do modelo não têm cotações disponíveis agora. Tenta novamente, camarada.",
+      };
     tip.selections = valid as TipOutput["selections"];
     return { tip, candidates: context.matches, demo: context.kind === "demo" };
   } catch (e) {

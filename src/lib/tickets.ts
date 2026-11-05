@@ -30,7 +30,7 @@ export type TicketSelectionRow = {
   market: string;
   pick: string;
   odds: number;
-  result: "win" | "lost" | "pending" | null;
+  result: "win" | "lost" | "pending" | "void" | null;
 };
 
 export type TicketWithSelections = TicketRow & { selections: TicketSelectionRow[] };
@@ -45,6 +45,11 @@ export type NewSelection = {
   odds: number;
 };
 
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  return data.session ? { Authorization: `Bearer ${data.session.access_token}` } : {};
+}
+
 /** Cria um bilhete e devolve a versão persistida (sem seleções; buscar depois na lista). */
 export async function createTicket(input: {
   source: "manual" | "ai";
@@ -56,8 +61,8 @@ export async function createTicket(input: {
   try {
     const res = await fetch("/api/tickets", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ stake: input.stake, selections: input.selections }),
     });
     if (!res.ok) {
       const text = await res.text();
@@ -103,7 +108,9 @@ export function useTicketSettler() {
 
 async function settlePendingTickets(): Promise<number> {
   try {
-    const res = await fetch("/api/tickets/settle", { method: "POST" });
+    const headers = await authHeaders();
+    if (!headers["Authorization"]) return 0;
+    const res = await fetch("/api/tickets/settle", { method: "POST", headers });
     if (!res.ok) return 0;
     const json = (await res.json()) as { settled: number };
     return json.settled ?? 0;
@@ -114,7 +121,7 @@ async function settlePendingTickets(): Promise<number> {
 
 /** Estatísticas do histórico: win rate, ROI e valor líquido em Kz. */
 export function ticketStats(tickets: TicketWithSelections[]) {
-  const settled = tickets.filter((t) => t.status !== "pending");
+  const settled = tickets.filter((t) => t.status !== "pending" && t.status !== "void"); // anulados devolvem a stake: fora das estatísticas
   const won = settled.filter((t) => t.status === "won");
   const lost = settled.filter((t) => t.status === "lost");
   const staked = settled.reduce((a, t) => a + Number(t.stake), 0);
