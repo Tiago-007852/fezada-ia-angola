@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { authenticateUser } from "@/lib/access.server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { generateTipTicket } from "@/lib/ai/tips.server";
+import { aiApiKey } from "@/lib/ai/gateway.server";
 import { createTicket } from "@/lib/tickets.server";
 
 const SYSTEM_BASE = `És o "Camarada Fezada", o consultor de apostas desportivas da Fezada IA, feito para apostadores angolanos.
@@ -46,7 +47,7 @@ export const Route = createFileRoute("/api/chat")({
         const rl = rateLimit(`chat:${auth.userId}`, 20, 60_000);
         if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
+        const apiKey = aiApiKey();
         if (!apiKey) return new Response("IA não configurada", { status: 500 });
         const raw = await request.text();
         if (raw.length > 60_000) return new Response("Conversa demasiado longa", { status: 413 });

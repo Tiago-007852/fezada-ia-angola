@@ -61,6 +61,21 @@ async function withRunId(response: Response, gw: ReturnType<typeof runIdFetch>) 
   return new Response(body, { status: response.status, headers });
 }
 
+// Endpoint OpenAI-compatible. Por omissão mantém-se o gateway do Lovable;
+// numa instalação própria (ex.: Vercel) define AI_GATEWAY_URL para o teu provider
+// (OpenAI, OpenRouter, etc.) e AI_MODEL para o modelo disponível nesse provider.
+const DEFAULT_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
+const DEFAULT_MODEL = "openai/gpt-6-astra";
+
+function gatewayUrl(): string {
+  return (process.env["AI_GATEWAY_URL"] || DEFAULT_GATEWAY_URL).replace(/\/+$/, "");
+}
+
+/** Chave da IA: AI_API_KEY (recomendada) com fallback para LOVABLE_API_KEY. */
+export function aiApiKey(): string | undefined {
+  return process.env["AI_API_KEY"] || process.env["LOVABLE_API_KEY"];
+}
+
 export function streamGatewayChat(
   request: Request,
   apiKey: string,
@@ -68,28 +83,39 @@ export function streamGatewayChat(
   system: string,
   tools?: ToolSet,
 ) {
+  const baseURL = gatewayUrl();
+  const isLovableGateway = /gateway\.lovable\.dev/.test(baseURL);
+  const model = process.env["AI_MODEL"] || DEFAULT_MODEL;
+
   const gw = runIdFetch(request.headers.get(RUN) ?? undefined);
   const provider = createOpenAI({
-    baseURL: "https://ai.gateway.lovable.dev/v1",
+    baseURL,
     apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+    ...(isLovableGateway
+      ? { headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" } }
+      : {}),
     fetch: gw.fetch,
   });
   const result = streamText({
-    model: provider.responses("openai/gpt-6-astra"),
+    // O gateway do Lovable expõe a Responses API; endpoints genéricos usam chat completions.
+    model: isLovableGateway ? provider.responses(model) : provider.chat(model),
     system,
     messages,
     ...(tools ? { tools: tools as ToolSet, toolChoice: "auto" as const } : {}),
     abortSignal: request.signal,
-    providerOptions: {
-      openai: {
-        store: false,
-        forceReasoning: true,
-        reasoningEffort: "low",
-        reasoningSummary: "auto",
-        include: ["reasoning.encrypted_content"],
-      },
-    },
+    ...(isLovableGateway
+      ? {
+          providerOptions: {
+            openai: {
+              store: false,
+              forceReasoning: true,
+              reasoningEffort: "low",
+              reasoningSummary: "auto",
+              include: ["reasoning.encrypted_content"],
+            },
+          },
+        }
+      : {}),
   });
   return withRunId(result.toUIMessageStreamResponse(), gw);
 }

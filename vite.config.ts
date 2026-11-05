@@ -12,6 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Deploy na Vercel: fixa o preset do Nitro para gerar .vercel/output.
+  // Num build do Lovable este valor é ignorado (LOVABLE_NITRO_PRESET manda).
+  nitro: { preset: "vercel" },
   // Preview dev server deste workspace: porta fixa 3000, atada a todas as interfaces.
   vite: {
     server: {

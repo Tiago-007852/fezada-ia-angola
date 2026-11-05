@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { authenticateUser } from "@/lib/access.server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit.server";
 import { generateTipTicket } from "@/lib/ai/tips.server";
+import { aiApiKey } from "@/lib/ai/gateway.server";
 import { createTicket } from "@/lib/tickets.server";
 import { RiskLevel } from "@/lib/tips.shared";
 import { totalOddsOf } from "@/lib/ticket.shared";
@@ -20,7 +21,7 @@ export const Route = createFileRoute("/api/tips/generate")({
         const rl = rateLimit(`tips:${auth.userId}`, 6, 10 * 60_000);
         if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
-        const apiKey = process.env["LOVABLE_API_KEY"];
+        const apiKey = aiApiKey();
         if (!apiKey) return new Response("IA não configurada", { status: 500 });
 
         let body: { risk?: string; stake?: number } = {};
