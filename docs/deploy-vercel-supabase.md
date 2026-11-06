@@ -78,6 +78,10 @@ está ligado para produção.
    - `API_SPORTS_KEY`
    - `AI_API_KEY` (+ `AI_GATEWAY_URL` e `AI_MODEL` se não usares o gateway do Lovable)
    - `CRON_SECRET` (gera, por exemplo, com `openssl rand -hex 32`)
+   Sempre os **dois nomes** para URL e publishable key: `VITE_*` para o bundle do
+   browser, sem prefixo para o servidor (SSR e `/api/*`). Com só os `VITE_*`, a API
+   responde 500 "Supabase não configurado". `SUPABASE_SERVICE_ROLE_KEY` só existe
+   sem prefixo — nunca a exponhas com `VITE_`.
 4. **Deploy**. Node 22 é usado automaticamente; não é preciso mais configuração.
 
 ## 6. Cron de liquidação
