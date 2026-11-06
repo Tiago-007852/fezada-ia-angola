@@ -103,6 +103,27 @@ No GitHub → **Settings → Secrets and variables → Actions** cria:
 - Sem `API_SPORTS_KEY` o feed mostra "indisponível" (por design, nunca resultados inventados).
 - Sem `AI_API_KEY` o chat devolve "IA não configurada".
 
+## Problemas comuns
+
+**`Falhou ao executar 'removeChild' em 'Node'` ao correr o SQL no painel**
+Não é um erro de SQL: é o dashboard a ser quebrado pelo Chrome Translate ou por
+uma extensão de browser. Resolve assim:
+
+1. No Chrome, clica com o botão direito na página → **Nunca traduzir este site**
+   (ou desativa a tradução automática em `chrome://settings/languages`).
+2. Abre o Supabase numa janela **anónima** (extensões desligadas) ou noutro browser.
+3. Recarrega, cola o SQL e corre com **Ctrl+Enter** em vez de Enter.
+
+Alternativa sem o editor web (na tua máquina, dentro do repo):
+
+```bash
+npx supabase link --project-ref <ref>
+npx supabase db push      # aplica as 3 migrações por ordem e pede a password
+```
+
+Se o editor continuar a falhar, corre os ficheiros de `supabase/migrations/` um a
+um, pela ordem `20260101000000_base` → `20261104000000_tickets` → `20261105000000_hardening`.
+
 ## Notas
 
 - As migrações são idempotentes, mas aplica-as **só** ao projeto novo: numa base antiga
