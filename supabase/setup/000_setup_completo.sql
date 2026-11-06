@@ -2,7 +2,8 @@
 -- FEZADA IA — setup completo para um projeto Supabase NOVO
 -- Cola este ficheiro inteiro em: Supabase Dashboard -> SQL Editor -> New query -> Run.
 -- Cria: enums, profiles, user_roles, has_role, trigger de registo, bilhetes,
--- admin_emails e todo o RLS. No fim, define o teu email de admin (ver rodapé).
+-- admin_emails e todo o RLS. Pode ser corrido mais de uma vez (idempotente).
+-- No fim, define o teu email de admin (ver rodapé).
 -- =============================================================================
 
 -- Schema base do Fezada IA para um projeto Supabase novo (fora do Lovable).
@@ -131,14 +132,17 @@ create table if not exists public.tickets (
 
 alter table public.tickets enable row level security;
 
+drop policy if exists "Utilizador vê os seus bilhetes" on public.tickets;
 create policy "Utilizador vê os seus bilhetes"
   on public.tickets for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Utilizador cria os seus bilhetes" on public.tickets;
 create policy "Utilizador cria os seus bilhetes"
   on public.tickets for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Utilizador atualiza os seus bilhetes" on public.tickets;
 create policy "Utilizador atualiza os seus bilhetes"
   on public.tickets for update
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -161,14 +165,17 @@ create table if not exists public.ticket_selections (
 
 alter table public.ticket_selections enable row level security;
 
+drop policy if exists "Só o dono vê seleções do bilhete" on public.ticket_selections;
 create policy "Só o dono vê seleções do bilhete"
   on public.ticket_selections for select
   using (exists (select 1 from public.tickets t where t.id = ticket_id and t.user_id = auth.uid()));
 
+drop policy if exists "Só o dono insere seleções do bilhete" on public.ticket_selections;
 create policy "Só o dono insere seleções do bilhete"
   on public.ticket_selections for insert
   with check (exists (select 1 from public.tickets t where t.id = ticket_id and t.user_id = auth.uid()));
 
+drop policy if exists "Só o dono atualiza seleções do bilhete" on public.ticket_selections;
 create policy "Só o dono atualiza seleções do bilhete"
   on public.ticket_selections for update
   using (exists (select 1 from public.tickets t where t.id = ticket_id and t.user_id = auth.uid()))
