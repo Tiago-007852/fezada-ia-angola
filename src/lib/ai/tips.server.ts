@@ -20,6 +20,7 @@ import {
   type UpcomingWithOdds,
 } from "@/lib/feed.server";
 import { MATCHES, netReturn } from "@/lib/odds";
+import { aiModel, gatewayUrl, isLovableGateway } from "@/lib/ai/gateway.server";
 
 /** Converte os jogos do feed real em candidatos (odds de referência = a melhor odd disponível). */
 export function candidatesFromUpcoming(games: UpcomingWithOdds[], limit = 8): CandidateMatch[] {
@@ -170,14 +171,15 @@ export async function generateTipTicket(
   risk: RiskLevel,
 ): Promise<{ tip: TipOutput; candidates: CandidateMatch[]; demo: boolean } | { error: string }> {
   const context = await buildTipContext(dateISO);
+  const baseURL = gatewayUrl();
   const provider = createOpenAI({
-    baseURL: "https://ai.gateway.lovable.dev/v1",
+    baseURL,
     apiKey,
-    headers: { "Lovable-API-Key": apiKey },
+    ...(isLovableGateway(baseURL) ? { headers: { "Lovable-API-Key": apiKey } } : {}),
   });
   try {
     const result = await generateObject({
-      model: provider.chat("openai/gpt-6-astra"),
+      model: provider.chat(aiModel()),
       schema: TIP_SCHEMA,
       prompt: buildPrompt(context, risk),
       ...(request ? { abortSignal: request.signal } : {}),

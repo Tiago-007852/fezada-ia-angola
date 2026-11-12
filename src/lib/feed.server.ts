@@ -18,6 +18,19 @@ export type UpcomingFixture = {
   awayLogo: string;
   kickoffISO: string;
   status: string;
+  hs: number | null;
+  as: number | null;
+  minute: number | null;
+};
+
+/** Palpite 1X2 derivado das previsões da API-Sports para um jogo. */
+export type MatchPrediction = {
+  pick: "1" | "X" | "2";
+  confidence: number;
+  home: number | null;
+  draw: number | null;
+  away: number | null;
+  advice: string | null;
 };
 
 export type BookieOdds = {
@@ -29,15 +42,17 @@ export type BookieOdds = {
 
 export type UpcomingWithOdds = UpcomingFixture & {
   odds: BookieOdds[]; // mercado 1X2 por bookmaker disponível
+  prediction: MatchPrediction | null; // palpite do jogo (null quando a API não tem previsão)
 };
 
 type ApiFixture = {
-  fixture: { id: number; date: string; status: { short: string } };
+  fixture: { id: number; date: string; status: { short: string; elapsed?: number | null } };
   league: { id: number; name: string; logo: string; country: string };
   teams: {
     home: { id: number; name: string; logo: string };
     away: { id: number; name: string; logo: string };
   };
+  goals?: { home: number | null; away: number | null };
 };
 
 type ApiOdds = {
@@ -70,14 +85,82 @@ export async function fetchUpcoming(dateISO: string): Promise<UpcomingFixture[] 
     awayLogo: f.teams.away.logo,
     kickoffISO: f.fixture.date,
     status: f.fixture.status.short,
+    hs: f.goals?.home ?? null,
+    as: f.goals?.away ?? null,
+    minute: f.fixture.status.elapsed ?? null,
   }));
+}
+
+function pctToInt(v: string | null | undefined): number | null {
+  if (!v) return null;
+  const n = parseInt(v.replace("%", ""), 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+type ApiPredictionRow = {
+  fixture: { id: number };
+  predictions: {
+    percent: { home: string | null; draw: string | null; away: string | null };
+    advice?: string | null;
+  };
+};
+
+/**
+ * Previsões (palpites) da API-Sports para todos os jogos de um dia.
+ * O endpoint é paginado: percorremos até 3 páginas e paramos na última.
+ */
+export async function fetchPredictionsByDate(
+  dateISO: string,
+): Promise<Map<string, MatchPrediction>> {
+  const out = new Map<string, MatchPrediction>();
+  for (let page = 1; page <= 3; page++) {
+    const rows = await apiSports<ApiPredictionRow>(
+      "/predictions",
+      { date: dateISO, page },
+      10 * 60_000,
+    );
+    if (!rows || rows.length === 0) break;
+    for (const row of rows) {
+      const p = row.predictions?.percent;
+      if (!p) continue;
+      const home = pctToInt(p.home);
+      const draw = pctToInt(p.draw);
+      const away = pctToInt(p.away);
+      const options: [MatchPrediction["pick"], number | null][] = [
+        ["1", home],
+        ["X", draw],
+        ["2", away],
+      ];
+      let best: [MatchPrediction["pick"], number | null] | null = null;
+      for (const o of options) if (o[1] !== null && (!best || o[1] > (best[1] ?? -1))) best = o;
+      if (!best || best[1] === null) continue;
+      out.set(String(row.fixture.id), {
+        pick: best[0],
+        confidence: best[1],
+        home,
+        draw,
+        away,
+        advice: row.predictions.advice ?? null,
+      });
+    }
+    if (rows.length < 10) break;
+  }
+  return out;
 }
 
 export async function fetchUpcomingOdds(dateISO: string): Promise<UpcomingWithOdds[] | null> {
   const fixtures = await fetchUpcoming(dateISO);
   if (!fixtures) return null;
-  const oddsRows = await apiSports<ApiOdds>("/odds", { date: dateISO, bookmaker: 8 }, 10 * 60_000);
-  if (!oddsRows || oddsRows.length === 0) return fixtures.map((f) => ({ ...f, odds: [] }));
+  const [oddsRows, predictions] = await Promise.all([
+    apiSports<ApiOdds>("/odds", { date: dateISO, bookmaker: 8 }, 10 * 60_000),
+    fetchPredictionsByDate(dateISO),
+  ]);
+  if (!oddsRows || oddsRows.length === 0)
+    return fixtures.map((f) => ({
+      ...f,
+      odds: [],
+      prediction: predictions.get(f.fixtureId) ?? null,
+    }));
 
   const byId = new Map<string, BookieOdds[]>();
   for (const row of oddsRows) {
@@ -110,7 +193,11 @@ export async function fetchUpcomingOdds(dateISO: string): Promise<UpcomingWithOd
     "Taça de Angola",
   ];
   return fixtures
-    .map((f) => ({ ...f, odds: byId.get(f.fixtureId) ?? [] }))
+    .map((f) => ({
+      ...f,
+      odds: byId.get(f.fixtureId) ?? [],
+      prediction: predictions.get(f.fixtureId) ?? null,
+    }))
     .sort((a, b) => {
       const pa = a.odds.length > 0 ? 0 : 1;
       const pb = b.odds.length > 0 ? 0 : 1;

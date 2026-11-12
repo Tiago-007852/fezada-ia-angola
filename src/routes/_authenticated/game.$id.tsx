@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Table2 } from "lucide-react";
 import { useState } from "react";
-import { getGameDetail, getStandings } from "@/lib/feed.functions";
+import { getFixturePrediction, getGameDetail, getStandings } from "@/lib/feed.functions";
+import { pickLabel } from "@/lib/tips.shared";
 import { Button } from "@/components/ui/button";
 import { Crest, MatchMinuteBadge, TeamCell } from "@/components/MatchCenter";
 import { cn } from "@/lib/utils";
@@ -91,6 +92,8 @@ function GameDetailPage() {
       </section>
 
       <main className="space-y-3 px-4 pb-16 pt-3">
+        <PredictionCard fixtureId={f.fixtureId} />
+
         {data.detail.stats.length > 0 && (
           <Card title="Estatísticas">
             <ul className="space-y-1.5">
@@ -181,6 +184,78 @@ function GameDetailPage() {
         <TrophyCard leagueId={f.leagueId} season={f.season} />
       </main>
     </div>
+  );
+}
+
+function PredictionCard({ fixtureId }: { fixtureId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["fixture-prediction", fixtureId],
+    queryFn: () => getFixturePrediction({ data: fixtureId }),
+    enabled: typeof window !== "undefined",
+  });
+  const p = data?.prediction;
+  const rows = [
+    { id: "1" as const, label: "Casa", value: p?.percentHome ?? null },
+    { id: "X" as const, label: "Empate", value: p?.percentDraw ?? null },
+    { id: "2" as const, label: "Fora", value: p?.percentAway ?? null },
+  ];
+  const best = rows.reduce<{ id: "1" | "X" | "2"; value: number } | null>((acc, r) => {
+    if (r.value === null) return acc;
+    return !acc || r.value > acc.value ? { id: r.id, value: r.value } : acc;
+  }, null);
+
+  return (
+    <Card title="Palpite">
+      {isLoading && <p className="text-xs text-muted-foreground">A carregar o palpite…</p>}
+      {!isLoading && !best && (
+        <p className="text-xs text-muted-foreground">
+          Sem previsão da API para este jogo. Vê as odds no comparador de bilhetes.
+        </p>
+      )}
+      {best && (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Mais provável: <b className="text-primary">{pickLabel[best.id]}</b> ·{" "}
+            <b className="tabular-nums text-primary">{best.value}%</b>
+          </p>
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-secondary">
+            {rows.map((r) => (
+              <span
+                key={r.id}
+                className={cn(r.id === best.id ? "bg-primary" : "bg-muted-foreground/40")}
+                style={{ width: `${r.value ?? 0}%` }}
+              />
+            ))}
+          </div>
+          <div className="grid grid-cols-3 gap-1 text-center">
+            {rows.map((r) => (
+              <div
+                key={r.id}
+                className={cn(
+                  "rounded-lg border px-1 py-1.5",
+                  r.id === best.id ? "border-primary/50 bg-primary/10" : "border-border",
+                )}
+              >
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {r.label}
+                </p>
+                <p
+                  className={cn(
+                    "font-display text-sm font-bold tabular-nums",
+                    r.id === best.id ? "text-primary" : "text-foreground",
+                  )}
+                >
+                  {r.value === null ? "–" : `${r.value}%`}
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Previsão estatística da API-Sports (Poisson, forma e H2H) — não é garantia de resultado.
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }
 

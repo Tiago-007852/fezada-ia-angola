@@ -14,4 +14,5 @@
 - Admin role is granted by the `handle_new_user` trigger for the configured admin email — no client-side admin checks.
 - AI chat streams from `/api/chat`, which verifies the bearer token and active status before calling the gateway.
 - Odds and booking codes are demo data in `src/lib/odds.ts` until a real feed is connected.
+- The match centre (`src/components/MatchCenter.tsx`) lists matches league by league per day, like BeSoccer. Per-game tips come from API-Sports `/predictions?date=` via `fetchPredictionsByDate` (pages 1-3, 10 min cache); when a fixture has no prediction the row only shows kickoff time and odds.
 - Live scores come from API-Sports (`API_SPORTS_KEY` secret) via the `getLiveScores` server fn (`src/lib/live.server.ts`), cached 45s server-side and refetched every 30s by `useLiveScores`; on key/API failure the UI shows an "indisponível" notice, never fake scores.

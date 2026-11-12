@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   MessageCircle,
   Ticket,
-  Radio,
+  CalendarDays,
   Shield,
   LogOut,
   Clock,
@@ -104,7 +104,7 @@ function AppPage() {
                   ["chat", "Camarada", MessageCircle],
                   ["palpites", "Palpites", Sparkles],
                   ["bilhetes", "Bilhetes", Ticket],
-                  ["live", "Ao vivo", Radio],
+                  ["live", "Jogos", CalendarDays],
                 ] as const
               ).map(([id, label, Icon]) => (
                 <button

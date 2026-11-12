@@ -3,8 +3,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   feedAvailable,
   fetchGameDetail,
+  fetchPrediction,
   fetchUpcomingOdds,
   fetchStandings,
+  type ApiPrediction,
   type GameDetail,
   type LeagueStanding,
   type UpcomingWithOdds,
@@ -41,6 +43,17 @@ export const getGameDetail = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<{ detail: GameDetail | null; demo: boolean }> => {
     const detail = await fetchGameDetail(data);
     return { detail, demo: !detail };
+  });
+
+export const getFixturePrediction = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: string) => {
+    if (!/^\d+$/.test(d)) throw new Error("ID de jogo inválido");
+    return d;
+  })
+  .handler(async ({ data }): Promise<{ prediction: ApiPrediction | null }> => {
+    const prediction = await fetchPrediction(data);
+    return { prediction };
   });
 
 export const getStandings = createServerFn({ method: "GET" })

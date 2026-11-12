@@ -67,8 +67,17 @@ async function withRunId(response: Response, gw: ReturnType<typeof runIdFetch>) 
 const DEFAULT_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1";
 const DEFAULT_MODEL = "openai/gpt-6-astra";
 
-function gatewayUrl(): string {
+export function gatewayUrl(): string {
   return (process.env["AI_GATEWAY_URL"] || DEFAULT_GATEWAY_URL).replace(/\/+$/, "");
+}
+
+/** O gateway do Lovable expõe a Responses API e exige o header proprietário. */
+export function isLovableGateway(baseURL: string = gatewayUrl()): boolean {
+  return /gateway\.lovable\.dev/.test(baseURL);
+}
+
+export function aiModel(): string {
+  return process.env["AI_MODEL"] || DEFAULT_MODEL;
 }
 
 /** Chave da IA: AI_API_KEY (recomendada) com fallback para LOVABLE_API_KEY. */
@@ -84,26 +93,26 @@ export function streamGatewayChat(
   tools?: ToolSet,
 ) {
   const baseURL = gatewayUrl();
-  const isLovableGateway = /gateway\.lovable\.dev/.test(baseURL);
-  const model = process.env["AI_MODEL"] || DEFAULT_MODEL;
+  const lovable = isLovableGateway(baseURL);
+  const model = aiModel();
 
   const gw = runIdFetch(request.headers.get(RUN) ?? undefined);
   const provider = createOpenAI({
     baseURL,
     apiKey,
-    ...(isLovableGateway
+    ...(lovable
       ? { headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" } }
       : {}),
     fetch: gw.fetch,
   });
   const result = streamText({
     // O gateway do Lovable expõe a Responses API; endpoints genéricos usam chat completions.
-    model: isLovableGateway ? provider.responses(model) : provider.chat(model),
+    model: lovable ? provider.responses(model) : provider.chat(model),
     system,
     messages,
     ...(tools ? { tools: tools as ToolSet, toolChoice: "auto" as const } : {}),
     abortSignal: request.signal,
-    ...(isLovableGateway
+    ...(lovable
       ? {
           providerOptions: {
             openai: {
